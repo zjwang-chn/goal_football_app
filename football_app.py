@@ -3,6 +3,7 @@
 """
 足球比分模拟器 - 基于闯关概率模型 (Streamlit 交互版)
 功能：主/客队独立进球模拟 → 比分分布统计 → 可视化分析
+支持：直接概率粘贴 / 从12个赔率数据自动生成概率
 """
 
 import streamlit as st
@@ -76,64 +77,135 @@ st.markdown("""
 
 st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 闯关概率模型</p>', unsafe_allow_html=True)
 
-# ----------------- 侧边栏：参数设置 -----------------
-st.sidebar.header("⚙️ 参数设置")
+# ================= 侧边栏：参数设置（顺序调整） =================
+st.sidebar.header("⚙️ 设置面板")
 
-# ---------- 批量粘贴区域 ----------
-st.sidebar.subheader("📋 批量粘贴概率")
-st.sidebar.caption("从Excel复制两列数据（主队|客队），粘贴后点击解析")
-paste_area = st.sidebar.text_area(
-    "粘贴数据（两列，每行一个概率对）",
-    placeholder="例如：\n0.14795 0.12345\n0.33488 0.29876\n0.47788 0.45678\n0.57448 0.54321\n0.64748 0.61234",
-    height=150,
-    key="paste_input"
+# ---------- 1. 模拟设置（置于顶部） ----------
+st.sidebar.subheader("🔢 模拟设置")
+sim_times = st.sidebar.selectbox(
+    "选择模拟次数",
+    options=[1000, 10000, 100000, 1000000],
+    index=3  # 默认100万次
 )
 
-if st.sidebar.button("🔍 解析并填充", use_container_width=True):
-    # 解析粘贴内容
-    lines = paste_area.strip().split('\n')
-    home_vals = []
-    away_vals = []
-    error_msg = None
-    
-    # 过滤空行并解析
-    valid_lines = [line.strip() for line in lines if line.strip()]
-    if len(valid_lines) < 5:
-        error_msg = f"需要5行数据，当前只有 {len(valid_lines)} 行"
-    else:
-        for i, line in enumerate(valid_lines[:5]):
-            # 按空格、制表符或逗号分割
-            parts = re.split(r'[,\s\t]+', line)
-            # 过滤空字符串
-            parts = [p for p in parts if p]
-            if len(parts) < 2:
-                error_msg = f"第{i+1}行数据不足两列"
-                break
-            try:
-                h_val = float(parts[0])
-                a_val = float(parts[1])
-                if not (0 <= h_val <= 1) or not (0 <= a_val <= 1):
-                    error_msg = f"第{i+1}行概率值必须在0~1之间"
-                    break
-                home_vals.append(h_val)
-                away_vals.append(a_val)
-            except ValueError:
-                error_msg = f"第{i+1}行包含非数字内容"
-                break
-    
-    if error_msg:
-        st.sidebar.error(f"解析失败：{error_msg}")
-    else:
-        # 更新 session_state 中的数值
-        for i in range(5):
-            st.session_state[f"home_p_{i}"] = home_vals[i]
-            st.session_state[f"away_p_{i}"] = away_vals[i]
-        st.sidebar.success("✅ 概率已填充，可点击开始模拟")
-        st.rerun()
+run_sim = st.sidebar.button("🚀 开始模拟", type="primary", use_container_width=True)
 
 st.sidebar.markdown("---")
 
-# ---------- 手动输入区域 ----------
+# ---------- 2. 参数设置（两种解析方式 + 手动输入） ----------
+st.sidebar.subheader("📊 参数设置")
+
+# --- 方法一：直接粘贴概率 (两列5行) ---
+with st.sidebar.expander("📋 方法一：直接粘贴概率", expanded=False):
+    st.caption("从Excel复制两列数据（主队|客队），每行一个概率对，共5行")
+    paste_area_prob = st.text_area(
+        "粘贴概率数据",
+        placeholder="例如：\n0.14795 0.12345\n0.33488 0.29876\n0.47788 0.45678\n0.57448 0.54321\n0.64748 0.61234",
+        height=150,
+        key="paste_prob",
+        label_visibility="collapsed"
+    )
+    if st.button("🔍 解析概率并填充", key="btn_parse_prob", use_container_width=True):
+        lines = paste_area_prob.strip().split('\n')
+        home_vals = []
+        away_vals = []
+        error_msg = None
+        
+        valid_lines = [line.strip() for line in lines if line.strip()]
+        if len(valid_lines) < 5:
+            error_msg = f"需要5行数据，当前只有 {len(valid_lines)} 行"
+        else:
+            for i, line in enumerate(valid_lines[:5]):
+                parts = re.split(r'[,\s\t]+', line)
+                parts = [p for p in parts if p]
+                if len(parts) < 2:
+                    error_msg = f"第{i+1}行数据不足两列"
+                    break
+                try:
+                    h_val = float(parts[0])
+                    a_val = float(parts[1])
+                    if not (0 <= h_val <= 1) or not (0 <= a_val <= 1):
+                        error_msg = f"第{i+1}行概率值必须在0~1之间"
+                        break
+                    home_vals.append(h_val)
+                    away_vals.append(a_val)
+                except ValueError:
+                    error_msg = f"第{i+1}行包含非数字内容"
+                    break
+        
+        if error_msg:
+            st.error(f"解析失败：{error_msg}")
+        else:
+            for i in range(5):
+                st.session_state[f"home_p_{i}"] = home_vals[i]
+                st.session_state[f"away_p_{i}"] = away_vals[i]
+            st.success("✅ 概率已填充，可点击开始模拟")
+            st.rerun()
+
+# --- 方法二：从赔率数据生成概率 (12个数字) ---
+with st.sidebar.expander("📈 方法二：从赔率数据生成", expanded=False):
+    st.caption("粘贴12个赔率数据（对应Excel的A2:A13），自动计算E列和J列概率")
+    paste_area_odds = st.text_area(
+        "粘贴赔率数据（12个数字，可用空格/逗号/换行分隔）",
+        placeholder="例如：\n3.65 2.5 3.45 7 19 40 2.9 2.4 3.9 9.6 25 50\n或按行粘贴12个数字",
+        height=120,
+        key="paste_odds",
+        label_visibility="collapsed"
+    )
+    if st.button("🔍 解析赔率并填充", key="btn_parse_odds", use_container_width=True):
+        content = paste_area_odds.replace(',', ' ').replace('\n', ' ').replace('\t', ' ')
+        parts = re.findall(r'[\d.]+', content)
+        nums = []
+        for p in parts:
+            try:
+                nums.append(float(p))
+            except ValueError:
+                pass
+        
+        error_msg = None
+        if len(nums) < 12:
+            error_msg = f"需要12个赔率数字，当前只解析到 {len(nums)} 个"
+        else:
+            home_odds = nums[:6]
+            away_odds = nums[6:12]
+            
+            # 计算主队概率 (E2:E6)
+            home_sum_inv = sum(1/o for o in home_odds)
+            C_home = 1 / home_sum_inv if home_sum_inv != 0 else 0
+            D_home = [C_home / o for o in home_odds[:5]]
+            E_home = []
+            cum_D = 0
+            for d in D_home:
+                e = d / (1 - cum_D) if (1 - cum_D) > 0 else 0
+                E_home.append(e)
+                cum_D += d
+            
+            # 计算客队概率 (J2:J6)
+            away_sum_inv = sum(1/o for o in away_odds)
+            C_away = 1 / away_sum_inv if away_sum_inv != 0 else 0
+            D_away = [C_away / o for o in away_odds[:5]]
+            E_away = []
+            cum_D = 0
+            for d in D_away:
+                e = d / (1 - cum_D) if (1 - cum_D) > 0 else 0
+                E_away.append(e)
+                cum_D += d
+            
+            for i, val in enumerate(E_home + E_away):
+                if not (0 <= val <= 1):
+                    error_msg = f"计算出的概率超出0~1范围，请检查赔率数据"
+                    break
+            
+            if error_msg:
+                st.error(error_msg)
+            else:
+                for i in range(5):
+                    st.session_state[f"home_p_{i}"] = E_home[i]
+                    st.session_state[f"away_p_{i}"] = E_away[i]
+                st.success("✅ 赔率已转换为概率并填充，可点击开始模拟")
+                st.rerun()
+
+# --- 手动输入区域（始终显示） ---
 st.sidebar.subheader("🏠 主队进球概率")
 home_probs = []
 for i in range(5):
@@ -141,7 +213,6 @@ for i in range(5):
     with col1:
         st.markdown(f"主队 · 第{i+1}球概率")
     with col2:
-        # 从 session_state 获取默认值
         default_vals = [0.14795, 0.33488, 0.47788, 0.57448, 0.64748]
         key = f"home_p_{i}"
         if key not in st.session_state:
@@ -181,16 +252,7 @@ for i in range(5):
         )
         away_probs.append(p)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔢 模拟设置")
-sim_times = st.sidebar.selectbox(
-    "选择模拟次数",
-    options=[1000, 10000, 100000, 1000000],
-    index=3
-)
-
-run_sim = st.sidebar.button("🚀 开始模拟", type="primary", use_container_width=True)
-
+# ---------- 3. 规则说明（置于底部） ----------
 st.sidebar.markdown("---")
 st.sidebar.caption("""
 **规则说明**  
@@ -200,7 +262,7 @@ st.sidebar.caption("""
 - 比分组合统计后计算分布  
 """)
 
-# ----------------- 核心模拟函数 -----------------
+# ================= 核心模拟函数 =================
 def simulate_goals_vectorized(probs, n_sims):
     rand_vals = np.random.random((n_sims, 5))
     success = rand_vals >= np.array(probs)
@@ -270,7 +332,7 @@ def run_simulation(home_p, away_p, n_sims):
         'elapsed': elapsed
     }
 
-# ----------------- 主内容区域 -----------------
+# ================= 主内容区域 =================
 if 'sim_data' not in st.session_state:
     st.session_state.sim_data = None
 
