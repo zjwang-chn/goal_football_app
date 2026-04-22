@@ -3,7 +3,7 @@
 """
 足球比分模拟器 - 基于闯关概率模型 (Streamlit 交互版)
 功能：主/客队独立进球模拟 → 比分分布统计 → 可视化分析
-支持：直接概率粘贴 / 从12个赔率数据自动生成概率
+支持：直接概率粘贴 / 从12个赔率数据自动生成概率 / 从XML文件加载真实赔率并转换
 """
 
 import streamlit as st
@@ -11,6 +11,9 @@ import numpy as np
 import pandas as pd
 import time
 import re
+import xml.etree.ElementTree as ET
+import requests
+from typing import Dict, List, Optional, Tuple
 
 # 尝试导入 plotly，若未安装则给出提示
 try:
@@ -21,7 +24,243 @@ except ImportError:
     PLOTLY_AVAILABLE = False
     st.warning("⚠️ Plotly 未安装，部分图表将使用 Streamlit 原生图表。建议运行: pip install plotly")
 
-# 页面配置
+# ================= XML 解析模块（适配属性格式） =================
+def parse_numberofgoals(xml_content: str) -> Dict[str, Dict]:
+    """解析 numberofgoals.xml，返回 {id: {h1..h6, a1..a6}}"""
+    root = ET.fromstring(xml_content)
+    result = {}
+    for fixture in root.findall(".//Fixture"):
+        match_id = fixture.get("id")
+        if not match_id:
+            continue
+        data = {}
+        for i in range(1, 7):
+            key = f"h{i}"
+            val = fixture.get(key)
+            if val is not None:
+                try:
+                    data[key] = float(val)
+                except ValueError:
+                    data[key] = 0.0
+            else:
+                data[key] = 0.0
+        for i in range(1, 7):
+            key = f"a{i}"
+            val = fixture.get(key)
+            if val is not None:
+                try:
+                    data[key] = float(val)
+                except ValueError:
+                    data[key] = 0.0
+            else:
+                data[key] = 0.0
+        result[match_id] = data
+    return result
+
+def parse_correctscore(xml_content: str) -> Dict[str, Dict]:
+    """解析 correctscore.xml，返回 {id: {h1..h10, a1..a10, o11..o16}}"""
+    root = ET.fromstring(xml_content)
+    result = {}
+    for fixture in root.findall(".//Fixture"):
+        match_id = fixture.get("id")
+        if not match_id:
+            continue
+        data = {}
+        for i in range(1, 11):
+            data[f"h{i}"] = float(fixture.get(f"h{i}", 0.0))
+        for i in range(1, 11):
+            data[f"a{i}"] = float(fixture.get(f"a{i}", 0.0))
+        for i in range(11, 17):
+            data[f"o{i}"] = float(fixture.get(f"o{i}", 0.0))
+        result[match_id] = data
+    return result
+
+def parse_halffull(xml_content: str) -> Dict[str, Dict]:
+    """解析 halffull.xml，返回 {id: {hh,hd,ha,dh,dd,da,ah,ad,aa}}"""
+    root = ET.fromstring(xml_content)
+    result = {}
+    fields = ["hh","hd","ha","dh","dd","da","ah","ad","aa"]
+    for fixture in root.findall(".//Fixture"):
+        match_id = fixture.get("id")
+        if not match_id:
+            continue
+        data = {}
+        for f in fields:
+            val = fixture.get(f)
+            data[f] = float(val) if val is not None else 0.0
+        result[match_id] = data
+    return result
+
+def parse_odds_config(xml_content: str) -> Dict[str, Dict]:
+    """解析 odds_config.xml，返回 {id: {gt,st,sh,sa}}"""
+    root = ET.fromstring(xml_content)
+    result = {}
+    fields = ["gt","st","sh","sa"]
+    for fixture in root.findall(".//Fixture"):
+        match_id = fixture.get("id")
+        if not match_id:
+            continue
+        data = {}
+        for f in fields:
+            val = fixture.get(f)
+            if val is not None:
+                try:
+                    data[f] = float(val)
+                except ValueError:
+                    data[f] = val
+            else:
+                data[f] = None
+        result[match_id] = data
+    return result
+
+def parse_overunder(xml_content: str) -> Dict[str, Dict]:
+    """解析 overunder.xml，返回 {id: {oo,uo,li}}"""
+    root = ET.fromstring(xml_content)
+    result = {}
+    fields = ["oo","uo","li"]
+    for fixture in root.findall(".//Fixture"):
+        match_id = fixture.get("id")
+        if not match_id:
+            continue
+        data = {}
+        for f in fields:
+            val = fixture.get(f)
+            data[f] = float(val) if val is not None else 0.0
+        result[match_id] = data
+    return result
+
+def parse_windrawwin(xml_content: str) -> Dict[str, Dict]:
+    """解析 windrawwin.xml，返回 {id: {ho,do,ao}}"""
+    root = ET.fromstring(xml_content)
+    result = {}
+    fields = ["ho","do","ao"]
+    for fixture in root.findall(".//Fixture"):
+        match_id = fixture.get("id")
+        if not match_id:
+            continue
+        data = {}
+        for f in fields:
+            val = fixture.get(f)
+            data[f] = float(val) if val is not None else 0.0
+        result[match_id] = data
+    return result
+
+def parse_windrawwinfirsthalf(xml_content: str) -> Dict[str, Dict]:
+    """解析 windrawwinfirsthalf.xml，返回 {id: {ho,do,ao}}"""
+    return parse_windrawwin(xml_content)  # 结构相同
+
+def parse_winodds(xml_content: str) -> Dict[str, Dict]:
+    """解析 winodds.xml，返回 {id: {g,gg,ho,ao,var}}，var以逗号分隔为列表"""
+    root = ET.fromstring(xml_content)
+    result = {}
+    for fixture in root.findall(".//Fixture"):
+        match_id = fixture.get("id")
+        if not match_id:
+            continue
+        data = {}
+        data["g"] = float(fixture.get("g", 0.0))
+        data["gg"] = float(fixture.get("gg", 0.0))
+        data["ho"] = float(fixture.get("ho", 0.0))
+        data["ao"] = float(fixture.get("ao", 0.0))
+        var_val = fixture.get("var", "")
+        if var_val and var_val.strip():
+            data["var"] = [v.strip() for v in var_val.split(",")]
+        else:
+            data["var"] = []
+        result[match_id] = data
+    return result
+
+class FootballDataLoader:
+    """加载并整合所有XML数据"""
+    def __init__(self):
+        self.numberofgoals = {}
+        self.correctscore = {}
+        self.halffull = {}
+        self.odds_config = {}
+        self.overunder = {}
+        self.windrawwin = {}
+        self.windrawwinfirsthalf = {}
+        self.winodds = {}
+        self.all_ids = set()
+    
+    def load_from_dict(self, file_dict: Dict[str, str]):
+        for filename, content in file_dict.items():
+            if "numberofgoals" in filename:
+                self.numberofgoals = parse_numberofgoals(content)
+                self.all_ids.update(self.numberofgoals.keys())
+            elif "correctscore" in filename:
+                self.correctscore = parse_correctscore(content)
+            elif "halffull" in filename:
+                self.halffull = parse_halffull(content)
+            elif "odds_config" in filename:
+                self.odds_config = parse_odds_config(content)
+            elif "overunder" in filename:
+                self.overunder = parse_overunder(content)
+            elif "windrawwin" in filename and "firsthalf" not in filename:
+                self.windrawwin = parse_windrawwin(content)
+            elif "windrawwinfirsthalf" in filename:
+                self.windrawwinfirsthalf = parse_windrawwinfirsthalf(content)
+            elif "winodds" in filename:
+                self.winodds = parse_winodds(content)
+    
+    def get_match_info(self, match_id: str) -> Dict:
+        info = {"id": match_id}
+        if match_id in self.numberofgoals:
+            info["numberofgoals"] = self.numberofgoals[match_id]
+        if match_id in self.correctscore:
+            info["correctscore"] = self.correctscore[match_id]
+        if match_id in self.halffull:
+            info["halffull"] = self.halffull[match_id]
+        if match_id in self.odds_config:
+            info["odds_config"] = self.odds_config[match_id]
+        if match_id in self.overunder:
+            info["overunder"] = self.overunder[match_id]
+        if match_id in self.windrawwin:
+            info["windrawwin"] = self.windrawwin[match_id]
+        if match_id in self.windrawwinfirsthalf:
+            info["windrawwinfirsthalf"] = self.windrawwinfirsthalf[match_id]
+        if match_id in self.winodds:
+            info["winodds"] = self.winodds[match_id]
+        return info
+    
+    def get_odds_for_match(self, match_id: str) -> Tuple[List[float], List[float]]:
+        """获取主队6个赔率 (h1~h6) 和客队6个赔率 (a1~a6)"""
+        if match_id not in self.numberofgoals:
+            return [1.0]*6, [1.0]*6
+        data = self.numberofgoals[match_id]
+        home_odds = [data.get(f"h{i}", 1.0) for i in range(1, 7)]
+        away_odds = [data.get(f"a{i}", 1.0) for i in range(1, 7)]
+        return home_odds, away_odds
+    
+    def get_odds_config_sh_sa(self, match_id: str) -> Tuple[Optional[float], Optional[float]]:
+        if match_id not in self.odds_config:
+            return None, None
+        cfg = self.odds_config[match_id]
+        return cfg.get("sh"), cfg.get("sa")
+
+# ================= 赔率转概率（方法二的逻辑） =================
+def odds_to_probs(odds_home: List[float], odds_away: List[float]) -> Tuple[List[float], List[float]]:
+    """
+    输入：主队6个赔率 (h1~h6)，客队6个赔率 (a1~a6)
+    输出：主队5个闯关概率，客队5个闯关概率
+    """
+    def calc_E(odds_list):
+        sum_inv = sum(1/o for o in odds_list)
+        C = 1 / sum_inv if sum_inv != 0 else 0
+        D = [C / o for o in odds_list[:5]]
+        E = []
+        cum_D = 0
+        for d in D:
+            e = d / (1 - cum_D) if (1 - cum_D) > 0 else 0
+            E.append(e)
+            cum_D += d
+        return E
+
+    home_probs = calc_E(odds_home[:6])
+    away_probs = calc_E(odds_away[:6])
+    return home_probs, away_probs
+
+# ================= 页面配置 =================
 st.set_page_config(
     page_title="⚽ 足球比分模拟器",
     page_icon="⚽",
@@ -32,180 +271,138 @@ st.set_page_config(
 # 自定义样式
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 32px;
-        font-weight: bold;
-        color: #1F4E79;
-        text-align: center;
-        margin-bottom: 20px;
-    }
-    .sub-header {
-        font-size: 20px;
-        font-weight: 600;
-        color: #2C3E50;
-        margin-top: 15px;
-        margin-bottom: 10px;
-        border-bottom: 2px solid #e0e0e0;
-        padding-bottom: 5px;
-    }
-    .metric-box {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .metric-value {
-        font-size: 28px;
-        font-weight: bold;
-        color: #1F4E79;
-    }
-    .metric-label {
-        font-size: 14px;
-        color: #6c757d;
-    }
-    input[type=number]::-webkit-inner-spin-button,
-    input[type=number]::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-    }
-    input[type=number] {
-        -moz-appearance: textfield;
-    }
+    .main-header { font-size: 32px; font-weight: bold; color: #1F4E79; text-align: center; margin-bottom: 20px; }
+    .sub-header { font-size: 20px; font-weight: 600; color: #2C3E50; margin-top: 15px; margin-bottom: 10px; border-bottom: 2px solid #e0e0e0; padding-bottom: 5px; }
+    .metric-box { background-color: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .metric-value { font-size: 28px; font-weight: bold; color: #1F4E79; }
+    .metric-label { font-size: 14px; color: #6c757d; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 闯关概率模型</p>', unsafe_allow_html=True)
 
-# ================= 侧边栏：参数设置（顺序调整） =================
+# ================= 侧边栏：参数设置 =================
 st.sidebar.header("⚙️ 设置面板")
 
-# ---------- 1. 模拟设置（置于顶部） ----------
+# ---------- 0. 数据源选择（新增） ----------
+st.sidebar.subheader("📂 数据源 (XML)")
+data_source = st.sidebar.radio(
+    "选择数据来源",
+    ["手动输入概率", "从赔率生成", "从XML文件加载"],
+    index=0,
+    horizontal=True
+)
+
+# 初始化XML数据加载器
+if "xml_loader" not in st.session_state:
+    st.session_state.xml_loader = None
+if "selected_match_id" not in st.session_state:
+    st.session_state.selected_match_id = None
+
+# XML加载相关
+if data_source == "从XML文件加载":
+    st.sidebar.markdown("**加载方式**")
+    load_method = st.sidebar.radio(
+        "选择加载方式",
+        ["上传本地文件", "从GitHub Raw URL读取"],
+        horizontal=True
+    )
+    
+    xml_files_content = {}
+    
+    if load_method == "上传本地文件":
+        uploaded_files = st.sidebar.file_uploader(
+            "请上传8个XML文件 (可多选)",
+            type=["xml"],
+            accept_multiple_files=True
+        )
+        if uploaded_files:
+            for file in uploaded_files:
+                content = file.read().decode("utf-8")
+                xml_files_content[file.name] = content
+            if len(xml_files_content) >= 8:
+                st.sidebar.success(f"已加载 {len(xml_files_content)} 个文件")
+            else:
+                st.sidebar.warning(f"当前仅 {len(xml_files_content)} 个文件，建议上传全部8个")
+    
+    else:  # 从GitHub Raw URL
+        st.sidebar.markdown("请输入GitHub上XML文件的Raw URL（每行一个，需包含8个文件）")
+        urls_text = st.sidebar.text_area(
+            "Raw URLs",
+            placeholder="https://raw.githubusercontent.com/用户名/仓库名/main/xml/numberofgoals.xml\nhttps://raw.githubusercontent.com/.../correctscore.xml\n...",
+            height=150
+        )
+        if st.sidebar.button("🔍 从URL加载", use_container_width=True):
+            urls = [url.strip() for url in urls_text.splitlines() if url.strip()]
+            for url in urls:
+                try:
+                    resp = requests.get(url, timeout=10)
+                    if resp.status_code == 200:
+                        filename = url.split("/")[-1]
+                        xml_files_content[filename] = resp.text
+                    else:
+                        st.sidebar.error(f"下载失败: {url} (HTTP {resp.status_code})")
+                except Exception as e:
+                    st.sidebar.error(f"请求异常: {url} - {e}")
+            if len(xml_files_content) >= 8:
+                st.sidebar.success(f"成功加载 {len(xml_files_content)} 个文件")
+            else:
+                st.sidebar.warning(f"仅加载 {len(xml_files_content)} 个文件，请检查URL")
+    
+    # 如果有文件内容，则解析
+    if xml_files_content:
+        loader = FootballDataLoader()
+        loader.load_from_dict(xml_files_content)
+        st.session_state.xml_loader = loader
+        
+        ids_list = sorted(loader.all_ids)
+        if ids_list:
+            selected_id = st.sidebar.selectbox("选择比赛ID", ids_list, index=0)
+            st.session_state.selected_match_id = selected_id
+            
+            # 显示该场比赛的部分信息
+            match_info = loader.get_match_info(selected_id)
+            with st.sidebar.expander("📋 当前比赛数据预览"):
+                if "numberofgoals" in match_info:
+                    ng = match_info["numberofgoals"]
+                    home_odds = [ng.get(f"h{i}",0) for i in range(1,7)]
+                    away_odds = [ng.get(f"a{i}",0) for i in range(1,7)]
+                    st.write("主队赔率 (h1~h6):", home_odds)
+                    st.write("客队赔率 (a1~a6):", away_odds)
+                sh, sa = loader.get_odds_config_sh_sa(selected_id)
+                if sh is not None:
+                    st.write(f"odds_config.sh: {sh}")
+                if sa is not None:
+                    st.write(f"odds_config.sa: {sa}")
+            
+            # 提供“应用到模拟器”按钮（使用赔率转换）
+            if st.sidebar.button("📌 将此比赛的赔率转换为概率并应用", use_container_width=True):
+                home_odds, away_odds = loader.get_odds_for_match(selected_id)
+                home_probs_calc, away_probs_calc = odds_to_probs(home_odds, away_odds)
+                for i in range(5):
+                    st.session_state[f"home_p_{i}"] = home_probs_calc[i]
+                    st.session_state[f"away_p_{i}"] = away_probs_calc[i]
+                st.sidebar.success("✅ 已根据赔率计算并填充概率，点击下方开始模拟")
+                st.rerun()
+        else:
+            st.sidebar.warning("未找到任何比赛ID，请检查XML文件格式")
+
+# ---------- 1. 模拟设置 ----------
 st.sidebar.subheader("🔢 模拟设置")
 sim_times = st.sidebar.selectbox(
     "选择模拟次数",
     options=[1000, 10000, 100000, 1000000],
-    index=3  # 默认100万次
+    index=3
 )
 
 run_sim = st.sidebar.button("🚀 开始模拟", type="primary", use_container_width=True)
 
 st.sidebar.markdown("---")
 
-# ---------- 2. 参数设置（两种解析方式 + 手动输入） ----------
+# ---------- 2. 参数设置（两种传统方式 + 手动输入） ----------
 st.sidebar.subheader("📊 参数设置")
 
-# --- 方法一：直接粘贴概率 (两列5行) ---
-with st.sidebar.expander("📋 方法一：直接粘贴概率", expanded=False):
-    st.caption("从Excel复制两列数据（主队|客队），每行一个概率对，共5行")
-    paste_area_prob = st.text_area(
-        "粘贴概率数据",
-        placeholder="例如：\n0.14795 0.12345\n0.33488 0.29876\n0.47788 0.45678\n0.57448 0.54321\n0.64748 0.61234",
-        height=150,
-        key="paste_prob",
-        label_visibility="collapsed"
-    )
-    if st.button("🔍 解析概率并填充", key="btn_parse_prob", use_container_width=True):
-        lines = paste_area_prob.strip().split('\n')
-        home_vals = []
-        away_vals = []
-        error_msg = None
-        
-        valid_lines = [line.strip() for line in lines if line.strip()]
-        if len(valid_lines) < 5:
-            error_msg = f"需要5行数据，当前只有 {len(valid_lines)} 行"
-        else:
-            for i, line in enumerate(valid_lines[:5]):
-                parts = re.split(r'[,\s\t]+', line)
-                parts = [p for p in parts if p]
-                if len(parts) < 2:
-                    error_msg = f"第{i+1}行数据不足两列"
-                    break
-                try:
-                    h_val = float(parts[0])
-                    a_val = float(parts[1])
-                    if not (0 <= h_val <= 1) or not (0 <= a_val <= 1):
-                        error_msg = f"第{i+1}行概率值必须在0~1之间"
-                        break
-                    home_vals.append(h_val)
-                    away_vals.append(a_val)
-                except ValueError:
-                    error_msg = f"第{i+1}行包含非数字内容"
-                    break
-        
-        if error_msg:
-            st.error(f"解析失败：{error_msg}")
-        else:
-            for i in range(5):
-                st.session_state[f"home_p_{i}"] = home_vals[i]
-                st.session_state[f"away_p_{i}"] = away_vals[i]
-            st.success("✅ 概率已填充，可点击开始模拟")
-            st.rerun()
-
-# --- 方法二：从赔率数据生成概率 (12个数字) ---
-with st.sidebar.expander("📈 方法二：从赔率数据生成", expanded=False):
-    st.caption("粘贴12个赔率数据（对应Excel的A2:A13），自动计算E列和J列概率")
-    paste_area_odds = st.text_area(
-        "粘贴赔率数据（12个数字，可用空格/逗号/换行分隔）",
-        placeholder="例如：\n3.65 2.5 3.45 7 19 40 2.9 2.4 3.9 9.6 25 50\n或按行粘贴12个数字",
-        height=120,
-        key="paste_odds",
-        label_visibility="collapsed"
-    )
-    if st.button("🔍 解析赔率并填充", key="btn_parse_odds", use_container_width=True):
-        content = paste_area_odds.replace(',', ' ').replace('\n', ' ').replace('\t', ' ')
-        parts = re.findall(r'[\d.]+', content)
-        nums = []
-        for p in parts:
-            try:
-                nums.append(float(p))
-            except ValueError:
-                pass
-        
-        error_msg = None
-        if len(nums) < 12:
-            error_msg = f"需要12个赔率数字，当前只解析到 {len(nums)} 个"
-        else:
-            home_odds = nums[:6]
-            away_odds = nums[6:12]
-            
-            # 计算主队概率 (E2:E6)
-            home_sum_inv = sum(1/o for o in home_odds)
-            C_home = 1 / home_sum_inv if home_sum_inv != 0 else 0
-            D_home = [C_home / o for o in home_odds[:5]]
-            E_home = []
-            cum_D = 0
-            for d in D_home:
-                e = d / (1 - cum_D) if (1 - cum_D) > 0 else 0
-                E_home.append(e)
-                cum_D += d
-            
-            # 计算客队概率 (J2:J6)
-            away_sum_inv = sum(1/o for o in away_odds)
-            C_away = 1 / away_sum_inv if away_sum_inv != 0 else 0
-            D_away = [C_away / o for o in away_odds[:5]]
-            E_away = []
-            cum_D = 0
-            for d in D_away:
-                e = d / (1 - cum_D) if (1 - cum_D) > 0 else 0
-                E_away.append(e)
-                cum_D += d
-            
-            for i, val in enumerate(E_home + E_away):
-                if not (0 <= val <= 1):
-                    error_msg = f"计算出的概率超出0~1范围，请检查赔率数据"
-                    break
-            
-            if error_msg:
-                st.error(error_msg)
-            else:
-                for i in range(5):
-                    st.session_state[f"home_p_{i}"] = E_home[i]
-                    st.session_state[f"away_p_{i}"] = E_away[i]
-                st.success("✅ 赔率已转换为概率并填充，可点击开始模拟")
-                st.rerun()
-
-# --- 手动输入区域（始终显示） ---
+# 手动输入区域（始终显示，当从XML应用时会覆盖session_state值）
 st.sidebar.subheader("🏠 主队进球概率")
 home_probs = []
 for i in range(5):
@@ -252,7 +449,89 @@ for i in range(5):
         )
         away_probs.append(p)
 
-# ---------- 3. 规则说明（置于底部） ----------
+# 方法一：直接粘贴概率
+with st.sidebar.expander("📋 方法一：直接粘贴概率", expanded=False):
+    st.caption("从Excel复制两列数据（主队|客队），每行一个概率对，共5行")
+    paste_area_prob = st.text_area(
+        "粘贴概率数据",
+        placeholder="例如：\n0.14795 0.12345\n0.33488 0.29876\n0.47788 0.45678\n0.57448 0.54321\n0.64748 0.61234",
+        height=150,
+        key="paste_prob"
+    )
+    if st.button("🔍 解析概率并填充", key="btn_parse_prob", use_container_width=True):
+        lines = paste_area_prob.strip().split('\n')
+        home_vals = []
+        away_vals = []
+        error_msg = None
+        valid_lines = [line.strip() for line in lines if line.strip()]
+        if len(valid_lines) < 5:
+            error_msg = f"需要5行数据，当前只有 {len(valid_lines)} 行"
+        else:
+            for i, line in enumerate(valid_lines[:5]):
+                parts = re.split(r'[,\s\t]+', line)
+                parts = [p for p in parts if p]
+                if len(parts) < 2:
+                    error_msg = f"第{i+1}行数据不足两列"
+                    break
+                try:
+                    h_val = float(parts[0])
+                    a_val = float(parts[1])
+                    if not (0 <= h_val <= 1) or not (0 <= a_val <= 1):
+                        error_msg = f"第{i+1}行概率值必须在0~1之间"
+                        break
+                    home_vals.append(h_val)
+                    away_vals.append(a_val)
+                except ValueError:
+                    error_msg = f"第{i+1}行包含非数字内容"
+                    break
+        if error_msg:
+            st.error(f"解析失败：{error_msg}")
+        else:
+            for i in range(5):
+                st.session_state[f"home_p_{i}"] = home_vals[i]
+                st.session_state[f"away_p_{i}"] = away_vals[i]
+            st.success("✅ 概率已填充，可点击开始模拟")
+            st.rerun()
+
+# 方法二：从赔率数据生成概率（与XML转换逻辑相同）
+with st.sidebar.expander("📈 方法二：从赔率数据生成", expanded=False):
+    st.caption("粘贴12个赔率数据（对应h1~h6, a1~a6），自动计算闯关概率")
+    paste_area_odds = st.text_area(
+        "粘贴赔率数据（12个数字，可用空格/逗号/换行分隔）",
+        placeholder="例如：\n5.2 2.7 2.75 4.3 9 16 1.46 2.2 6.6 25 80 300",
+        height=120,
+        key="paste_odds"
+    )
+    if st.button("🔍 解析赔率并填充", key="btn_parse_odds", use_container_width=True):
+        content = paste_area_odds.replace(',', ' ').replace('\n', ' ').replace('\t', ' ')
+        parts = re.findall(r'[\d.]+', content)
+        nums = []
+        for p in parts:
+            try:
+                nums.append(float(p))
+            except ValueError:
+                pass
+        error_msg = None
+        if len(nums) < 12:
+            error_msg = f"需要12个赔率数字，当前只解析到 {len(nums)} 个"
+        else:
+            home_odds = nums[:6]
+            away_odds = nums[6:12]
+            home_probs_calc, away_probs_calc = odds_to_probs(home_odds, away_odds)
+            for val in home_probs_calc + away_probs_calc:
+                if not (0 <= val <= 1):
+                    error_msg = "计算出的概率超出0~1范围，请检查赔率数据"
+                    break
+            if error_msg:
+                st.error(error_msg)
+            else:
+                for i in range(5):
+                    st.session_state[f"home_p_{i}"] = home_probs_calc[i]
+                    st.session_state[f"away_p_{i}"] = away_probs_calc[i]
+                st.success("✅ 赔率已转换为概率并填充，可点击开始模拟")
+                st.rerun()
+
+# 规则说明
 st.sidebar.markdown("---")
 st.sidebar.caption("""
 **规则说明**  
