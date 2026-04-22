@@ -1,6 +1,6 @@
 @echo off
 cd /d "C:\Users\52483\Desktop\R.9\xml"
 git add .
-git commit -m "è‡ªåŠ¨åŒ–æäº¤ %date% %time%"
+git commit -m "×Ô¶¯»¯Ìá½» %date% %time%"
 git push
 pause
