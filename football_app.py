@@ -4,6 +4,7 @@
 足球比分模拟器 - 基于闯关概率模型 (Streamlit 交互版)
 功能：主/客队独立进球模拟 → 比分分布统计 → 可视化分析
 支持：直接概率粘贴 / 从12个赔率数据自动生成概率 / 从XML文件加载真实赔率并转换
+新增：从 odds_config.xml 提取比赛基本信息并在侧边栏展示
 """
 
 import streamlit as st
@@ -104,10 +105,7 @@ def parse_odds_config(xml_content: str) -> Dict[str, Dict]:
         for f in fields:
             val = fixture.get(f)
             if val is not None:
-                try:
-                    data[f] = float(val)
-                except ValueError:
-                    data[f] = val
+                data[f] = val  # 保持字符串，不强制转换
             else:
                 data[f] = None
         result[match_id] = data
@@ -158,7 +156,7 @@ def parse_winodds(xml_content: str) -> Dict[str, Dict]:
         if not match_id:
             continue
         data = {}
-        data["g"] = float(fixture.get("g", 0.0))
+        data["g"] = fixture.get("g", "")
         data["gg"] = float(fixture.get("gg", 0.0))
         data["ho"] = float(fixture.get("ho", 0.0))
         data["ao"] = float(fixture.get("ao", 0.0))
@@ -232,11 +230,24 @@ class FootballDataLoader:
         away_odds = [data.get(f"a{i}", 1.0) for i in range(1, 7)]
         return home_odds, away_odds
     
-    def get_odds_config_sh_sa(self, match_id: str) -> Tuple[Optional[float], Optional[float]]:
+    def get_odds_config_sh_sa(self, match_id: str) -> Tuple[Optional[str], Optional[str]]:
+        """返回 (sh, sa) 主客队中文名"""
         if match_id not in self.odds_config:
             return None, None
         cfg = self.odds_config[match_id]
         return cfg.get("sh"), cfg.get("sa")
+    
+    def get_match_basic_info(self, match_id: str) -> Dict[str, Optional[str]]:
+        """返回比赛基本信息: gt, st, sh, sa"""
+        if match_id not in self.odds_config:
+            return {"gt": None, "st": None, "sh": None, "sa": None}
+        cfg = self.odds_config[match_id]
+        return {
+            "gt": cfg.get("gt"),
+            "st": cfg.get("st"),
+            "sh": cfg.get("sh"),
+            "sa": cfg.get("sa")
+        }
 
 # ================= 赔率转概率（方法二的逻辑） =================
 def odds_to_probs(odds_home: List[float], odds_away: List[float]) -> Tuple[List[float], List[float]]:
@@ -257,12 +268,12 @@ def odds_to_probs(odds_home: List[float], odds_away: List[float]) -> Tuple[List[
         return E
 
     home_probs = calc_E(odds_home[:6])
-    away_probs = calc_E(odds_away[:6])
+    away_probs = calc_E(away_odds[:6])
     return home_probs, away_probs
 
 # ================= 页面配置 =================
 st.set_page_config(
-    page_title="⚽ 足球比分模拟器",
+    page_title=" 足球比分模拟器",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -276,6 +287,7 @@ st.markdown("""
     .metric-box { background-color: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .metric-value { font-size: 28px; font-weight: bold; color: #1F4E79; }
     .metric-label { font-size: 14px; color: #6c757d; }
+    .match-info-card { background-color: #eef2f7; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -284,7 +296,7 @@ st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 闯关概率模
 # ================= 侧边栏：参数设置 =================
 st.sidebar.header("⚙️ 设置面板")
 
-# ---------- 0. 数据源选择（新增） ----------
+# ---------- 0. 数据源选择 ----------
 st.sidebar.subheader("📂 数据源 (XML)")
 data_source = st.sidebar.radio(
     "选择数据来源",
@@ -325,67 +337,103 @@ if data_source == "从XML文件加载":
             else:
                 st.sidebar.warning(f"当前仅 {len(xml_files_content)} 个文件，建议上传全部8个")
     
-    else:  # 从GitHub Raw URL
-        st.sidebar.markdown("请输入GitHub上XML文件的Raw URL（每行一个，需包含8个文件）")
-        urls_text = st.sidebar.text_area(
-            "Raw URLs",
-            placeholder="https://raw.githubusercontent.com/用户名/仓库名/main/xml/numberofgoals.xml\nhttps://raw.githubusercontent.com/.../correctscore.xml\n...",
-            height=150
-        )
-        if st.sidebar.button("🔍 从URL加载", use_container_width=True):
-            urls = [url.strip() for url in urls_text.splitlines() if url.strip()]
-            for url in urls:
+    else:  # 从GitHub Raw URL读取 - 直接使用固定URL，无需用户输入
+        st.sidebar.markdown("**预设 GitHub 数据源**")
+        st.sidebar.info("将自动从以下固定地址加载8个XML文件：\n"
+                        "• numberofgoals.xml\n• odds_config.xml\n• correctscore.xml\n"
+                        "• halffull.xml\n• overunder.xml\n• windrawwin.xml\n"
+                        "• windrawwinfirsthalf.xml\n• winodds.xml")
+        
+        if st.sidebar.button("📥 从 GitHub 加载预设 XML 数据", use_container_width=True):
+            # 预定义的 URL 列表（基于处理逻辑.txt 中的地址）
+            base_url = "https://raw.githubusercontent.com/52483588/goal_football_app/refs/heads/main/"
+            files = [
+                "numberofgoals.xml",
+                "odds_config.xml",
+                "correctscore.xml",
+                "halffull.xml",
+                "overunder.xml",
+                "windrawwin.xml",
+                "windrawwinfirsthalf.xml",
+                "winodds.xml"
+            ]
+            progress_bar = st.sidebar.progress(0, text="正在下载...")
+            for idx, filename in enumerate(files):
+                url = base_url + filename
                 try:
                     resp = requests.get(url, timeout=10)
                     if resp.status_code == 200:
-                        filename = url.split("/")[-1]
                         xml_files_content[filename] = resp.text
+                        st.sidebar.success(f"✅ {filename} 加载成功")
                     else:
-                        st.sidebar.error(f"下载失败: {url} (HTTP {resp.status_code})")
+                        st.sidebar.error(f"❌ {filename} 加载失败 (HTTP {resp.status_code})")
                 except Exception as e:
-                    st.sidebar.error(f"请求异常: {url} - {e}")
+                    st.sidebar.error(f"❌ {filename} 请求异常: {e}")
+                progress_bar.progress((idx + 1) / len(files))
+            progress_bar.empty()
+            
             if len(xml_files_content) >= 8:
-                st.sidebar.success(f"成功加载 {len(xml_files_content)} 个文件")
+                st.sidebar.success("所有 XML 文件加载完成！")
+                # 解析并存入 session_state
+                loader = FootballDataLoader()
+                loader.load_from_dict(xml_files_content)
+                st.session_state.xml_loader = loader
+                ids_list = sorted(loader.all_ids)
+                if ids_list:
+                    st.session_state.selected_match_id = ids_list[0]  # 默认选择第一个比赛ID
+                    st.rerun()
             else:
-                st.sidebar.warning(f"仅加载 {len(xml_files_content)} 个文件，请检查URL")
+                st.sidebar.error("部分文件加载失败，请检查网络或重试。")
     
-    # 如果有文件内容，则解析
-    if xml_files_content:
+    # 如果有文件内容，则解析（针对上传方式）
+    if xml_files_content and not st.session_state.xml_loader:
         loader = FootballDataLoader()
         loader.load_from_dict(xml_files_content)
         st.session_state.xml_loader = loader
-        
         ids_list = sorted(loader.all_ids)
         if ids_list:
-            selected_id = st.sidebar.selectbox("选择比赛ID", ids_list, index=0)
-            st.session_state.selected_match_id = selected_id
-            
-            # 显示该场比赛的部分信息
-            match_info = loader.get_match_info(selected_id)
-            with st.sidebar.expander("📋 当前比赛数据预览"):
-                if "numberofgoals" in match_info:
-                    ng = match_info["numberofgoals"]
-                    home_odds = [ng.get(f"h{i}",0) for i in range(1,7)]
-                    away_odds = [ng.get(f"a{i}",0) for i in range(1,7)]
-                    st.write("主队赔率 (h1~h6):", home_odds)
-                    st.write("客队赔率 (a1~a6):", away_odds)
-                sh, sa = loader.get_odds_config_sh_sa(selected_id)
-                if sh is not None:
-                    st.write(f"odds_config.sh: {sh}")
-                if sa is not None:
-                    st.write(f"odds_config.sa: {sa}")
-            
-            # 提供“应用到模拟器”按钮（使用赔率转换）
-            if st.sidebar.button("📌 将此比赛的赔率转换为概率并应用", use_container_width=True):
-                home_odds, away_odds = loader.get_odds_for_match(selected_id)
-                home_probs_calc, away_probs_calc = odds_to_probs(home_odds, away_odds)
-                for i in range(5):
-                    st.session_state[f"home_p_{i}"] = home_probs_calc[i]
-                    st.session_state[f"away_p_{i}"] = away_probs_calc[i]
-                st.sidebar.success("✅ 已根据赔率计算并填充概率，点击下方开始模拟")
-                st.rerun()
-        else:
-            st.sidebar.warning("未找到任何比赛ID，请检查XML文件格式")
+            st.session_state.selected_match_id = ids_list[0]
+            st.rerun()
+    
+    # 显示已加载的比赛信息
+    if st.session_state.xml_loader and st.session_state.selected_match_id:
+        loader = st.session_state.xml_loader
+        ids_list = sorted(loader.all_ids)
+        selected_id = st.sidebar.selectbox("选择比赛ID", ids_list, index=ids_list.index(st.session_state.selected_match_id) if st.session_state.selected_match_id in ids_list else 0)
+        st.session_state.selected_match_id = selected_id
+        
+        # 获取比赛基本信息并显示在侧边栏
+        basic_info = loader.get_match_basic_info(selected_id)
+        with st.sidebar.expander("📋 比赛基本信息", expanded=True):
+            gt_raw = basic_info.get("gt")
+            if gt_raw:
+                # 格式化时间显示
+                if len(gt_raw) >= 15 and gt_raw[4:6].isdigit():
+                    formatted_gt = f"{gt_raw[:4]}-{gt_raw[4:6]}-{gt_raw[6:8]} {gt_raw[9:]}"
+                else:
+                    formatted_gt = gt_raw
+                st.markdown(f"**🕒 时间**: {formatted_gt}")
+            else:
+                st.markdown("**🕒 时间**: 未提供")
+            st.markdown(f"**🏆 赛事**: {basic_info.get('st', '未提供')}")
+            st.markdown(f"**🏠 主队**: {basic_info.get('sh', '未提供')}")
+            st.markdown(f"**✈️ 客队**: {basic_info.get('sa', '未提供')}")
+        
+        # 显示赔率预览
+        with st.sidebar.expander("📊 赔率数据预览"):
+            home_odds, away_odds = loader.get_odds_for_match(selected_id)
+            st.write("主队赔率 (h1~h6):", home_odds)
+            st.write("客队赔率 (a1~a6):", away_odds)
+        
+        # 提供“应用到模拟器”按钮
+        if st.sidebar.button("📌 将此比赛的赔率转换为概率并应用", use_container_width=True):
+            home_odds, away_odds = loader.get_odds_for_match(selected_id)
+            home_probs_calc, away_probs_calc = odds_to_probs(home_odds, away_odds)
+            for i in range(5):
+                st.session_state[f"home_p_{i}"] = home_probs_calc[i]
+                st.session_state[f"away_p_{i}"] = away_probs_calc[i]
+            st.sidebar.success("✅ 已根据赔率计算并填充概率，点击下方开始模拟")
+            st.rerun()
 
 # ---------- 1. 模拟设置 ----------
 st.sidebar.subheader("🔢 模拟设置")
