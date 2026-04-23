@@ -38,17 +38,22 @@ st.set_page_config(
 # =======================
 APP_CSS = """
 <style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
+/* 彻底隐藏 Streamlit 默认 UI */
+#MainMenu, footer, header,
+[data-testid="stToolbar"],
+[data-testid="stDecoration"] {
+    visibility: hidden !important;
+    height: 0 !important;
+}
 
+/* 主容器 */
 .main .block-container {
     padding: 0.5rem 1rem 2rem 1rem;
 }
 
-/* 侧边栏抽屉 */
+/* 侧边栏彻底移除 */
 [data-testid="stSidebar"] {
-    background-color: #f8f9fa;
+    display: none !important;
 }
 
 /* 移动端优化 */
@@ -63,7 +68,6 @@ header {visibility: hidden;}
     }
     h1 { font-size: 22px !important; }
     h2 { font-size: 18px !important; }
-    h3 { font-size: 16px !important; }
 }
 </style>
 """
@@ -72,10 +76,10 @@ st.markdown(APP_CSS, unsafe_allow_html=True)
 # =======================
 # 4. 顶部 App 栏
 # =======================
-top = st.columns([1, 3, 1])
+top = st.columns([1, 4, 1])
 with top[0]:
     if st.button("☰"):
-        st.session_state.sidebar_open = not st.session_state.get("sidebar_open", False)
+        st.session_state.show_menu = not st.session_state.get("show_menu", False)
 with top[1]:
     st.markdown("### ⚽ 比分模拟器")
 with top[2]:
@@ -271,40 +275,42 @@ if "sidebar_open" not in st.session_state: st.session_state.sidebar_open = False
 if "page" not in st.session_state: st.session_state.page = "首页"
 
 # =======================
-# 8. 侧边栏（抽屉式）
+# 8. 侧边栏（抽屉式 · 修复版）
 # =======================
-with st.sidebar:
-    if not st.session_state.sidebar_open:
-        st.stop()
 
-    st.header("⚙️ 设置")
+if st.session_state.get("show_menu", False):
+    with st.expander("⚙️ 设置面板", expanded=True):
 
-    st.session_state.page = st.radio(
-        "导航",
-        ["首页","胜平负","总进球","比分"],
-        index=["首页","胜平负","总进球","比分"].index(st.session_state.page)
-    )
+        st.session_state.page = st.radio(
+            "📄 导航页面",
+            ["首页", "胜平负", "总进球", "比分"],
+            index=["首页", "胜平负", "总进球", "比分"].index(st.session_state.page)
+        )
 
-    if st.button("📥 从 GitHub 加载 XML", use_container_width=True):
-        base = "https://raw.githubusercontent.com/52483588/goal_football_app/refs/heads/main/"
-        fs = ["numberofgoals.xml","odds_config.xml","correctscore.xml",
-              "halffull.xml","overunder.xml","windrawwin.xml",
-              "windrawwinfirsthalf.xml","winodds.xml"]
-        d = {}
-        for f in fs:
-            try:
-                d[f] = requests.get(base+f,timeout=10).text
-                st.success(f)
-            except: st.error(f)
-        loader = FootballDataLoader()
-        loader.load_from_dict(d)
-        st.session_state.xml_loader = loader
-        st.session_state.selected_match_id = loader.ordered_ids[0]
-        st.rerun()
+        if st.button("📥 从 GitHub 加载 XML", use_container_width=True):
+            base = "https://raw.githubusercontent.com/52483588/goal_football_app/refs/heads/main/"
+            fs = [
+                "numberofgoals.xml", "odds_config.xml", "correctscore.xml",
+                "halffull.xml", "overunder.xml", "windrawwin.xml",
+                "windrawwinfirsthalf.xml", "winodds.xml"
+            ]
+            d = {}
+            for f in fs:
+                try:
+                    d[f] = requests.get(base + f, timeout=10).text
+                    st.success(f)
+                except Exception as e:
+                    st.error(f"{f}: {e}")
 
-    if st.session_state.xml_loader:
-        loader = st.session_state.xml_loader
-        st.selectbox("比赛ID", loader.ordered_ids, key="selected_match_id")
+            loader = FootballDataLoader()
+            loader.load_from_dict(d)
+            st.session_state.xml_loader = loader
+            st.session_state.selected_match_id = loader.ordered_ids[0]
+            st.rerun()
+
+        if st.session_state.xml_loader:
+            loader = st.session_state.xml_loader
+            st.selectbox("选择比赛ID", loader.ordered_ids, key="selected_match_id")
 
 # =======================
 # 9. 主内容区（你原页面逻辑）
@@ -357,11 +363,13 @@ elif page == "比分":
 # =======================
 # 10. 底部 TabBar
 # =======================
+
 st.divider()
 btm = st.columns(4)
 labels = ["首页","胜平负","总进球","比分"]
-for i,label in enumerate(labels):
+for i, label in enumerate(labels):
     with btm[i]:
-        if st.button(label,use_container_width=True):
+        if st.button(label, use_container_width=True):
             st.session_state.page = label
+            st.session_state.show_menu = False
             st.rerun()
