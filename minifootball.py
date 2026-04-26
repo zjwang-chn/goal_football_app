@@ -583,7 +583,7 @@ if page == "首页":
     else:
         hm_df = pd.DataFrame(heatmap_data, index=[f"主{i}" for i in range(6)], columns=[f"客{i}" for i in range(6)])
         st.dataframe(hm_df.style.format("{:.2f}%").background_gradient(cmap='Blues', axis=None))
-    st.caption(f"模拟次数: {data['n_sims']:,} 次 | 基于闯关概率模型 · 每队最多5球")
+    st.caption(f"模拟次数: {data['n_sims']:,} 次 ")
 
 elif page == "胜平负":
     st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 闯关概率模型之胜平负</p>', unsafe_allow_html=True)
