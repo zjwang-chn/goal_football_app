@@ -359,8 +359,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= 自动加载XML数据 =================
-@st.cache_resource(show_spinner=False)
+# ================= 自动加载XML数据 (增加TTL缓存) =================
+@st.cache_resource(ttl=600, show_spinner=False)   # 10分钟自动过期
 def load_xml_from_github():
     base_url = "https://raw.githubusercontent.com/52483588/goal_football_app/refs/heads/main/"
     files = [
@@ -469,11 +469,17 @@ with st.container():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ================= 侧边栏 =================
+# ================= 侧边栏（增加手动刷新按钮） =================
 st.sidebar.header("⚙️ 设置面板")
 st.sidebar.subheader("🔢 模拟设置")
 sim_times = 1000000
 run_sim = st.sidebar.button("🚀 开始模拟", type="primary", use_container_width=True)
+
+# 手动刷新数据源按钮（解决缓存过期问题）
+if st.sidebar.button("🔄 刷新数据源", use_container_width=True):
+    st.cache_resource.clear()
+    st.rerun()
+
 st.sidebar.markdown("---")
 st.sidebar.caption("""
 **规则说明**  
