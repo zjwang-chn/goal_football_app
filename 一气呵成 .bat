@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 REM ===============================================
-REM   完整自动化流程：下载 + 归档 + 按日期整理 + Git推送
+REM   完整自动化流程：下载 + 归档 + 按日期整理 + Git推送（防交互）
 REM ===============================================
 
 set "BASE_PATH=C:\Users\52483\Desktop\R.9"
@@ -128,7 +128,7 @@ for %%f in ("%XML_PATH%\*.xml") do (
     )
 )
 
-echo 已移动 !moved_count! 个文件到时间戳文件夹：%timestamp%
+echo 已复制 !copied_count! 个文件到时间戳文件夹：%timestamp%
 
 :: 步骤7：按日期整理到目标目录
 echo [7/7] 按日期整理到目标目录...
@@ -164,19 +164,34 @@ echo           流程执行完成！
 echo ========================================
 echo.
 echo [统计信息]
-echo   下载文件数：!moved_count!
+echo   下载文件数：!copied_count!
 echo   时间戳文件夹：%timestamp%
 echo   最终保存路径：%target_date_path%\%timestamp%\
 echo.
 
-:: ========== 新增：Git 自动推送 ==========
+:: ========== Git 自动推送（防交互） ==========
 echo [额外步骤] 开始 Git 提交与推送...
+
+:: 设置行尾符自动转换（避免 LF->CRLF 警告）
+git config core.autocrlf true
+
 cd /d "%XML_PATH%"
+
+:: 添加所有变更
 git add .
-git commit -m "自动化提交 %date% %time%"
-git push
+
+:: 提交（若没有变更则跳过）
+git commit -m "自动化提交 %date% %time%" 2>nul
 if errorlevel 1 (
-    echo 警告：Git 推送失败，请检查网络或仓库配置
+    echo 没有需要提交的变更，跳过 commit
+)
+
+:: 推送并自动应答 n（避免卡在 "Should I try again?"）
+echo n | git push
+
+:: 检查推送结果
+if errorlevel 1 (
+    echo 警告：Git 推送失败，请稍后手动执行 push
 ) else (
     echo Git 推送成功！
 )
