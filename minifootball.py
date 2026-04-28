@@ -5,6 +5,7 @@
 基于闯关概率模型 (Streamlit 多页面版)
 功能：主/客队独立进球模拟 → 比分分布统计 → 可视化分析
 自动从GitHub加载预设XML数据，赔率自动转概率
+新增：轮次模拟页面（基于 MatchSimulator）
 """
 import streamlit as st
 import numpy as np
@@ -13,7 +14,7 @@ import time
 import xml.etree.ElementTree as ET
 import requests
 from typing import Dict, List, Optional, Tuple
-
+import random
 # 导入 plotly
 try:
     import plotly.graph_objects as go
@@ -22,7 +23,6 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
     st.warning("⚠️ Plotly 未安装，部分图表将使用 Streamlit 原生图表。建议运行: pip install plotly")
-
 # ================= XML 解析模块 =================
 def parse_numberofgoals(xml_content: str) -> Tuple[Dict[str, Dict], List[str]]:
     root = ET.fromstring(xml_content)
@@ -56,7 +56,6 @@ def parse_numberofgoals(xml_content: str) -> Tuple[Dict[str, Dict], List[str]]:
                 data[key] = 0.0
         result[match_id] = data
     return result, ordered_ids
-
 def parse_correctscore(xml_content: str) -> Dict[str, Dict]:
     root = ET.fromstring(xml_content)
     result = {}
@@ -73,7 +72,6 @@ def parse_correctscore(xml_content: str) -> Dict[str, Dict]:
             data[f"o{i}"] = float(fixture.get(f"o{i}", 0.0))
         result[match_id] = data
     return result
-
 def parse_halffull(xml_content: str) -> Dict[str, Dict]:
     root = ET.fromstring(xml_content)
     result = {}
@@ -88,7 +86,6 @@ def parse_halffull(xml_content: str) -> Dict[str, Dict]:
             data[f] = float(val) if val is not None else 0.0
         result[match_id] = data
     return result
-
 def parse_odds_config(xml_content: str) -> Dict[str, Dict]:
     root = ET.fromstring(xml_content)
     result = {}
@@ -106,7 +103,6 @@ def parse_odds_config(xml_content: str) -> Dict[str, Dict]:
                 data[f] = None
         result[match_id] = data
     return result
-
 def parse_overunder(xml_content: str) -> Dict[str, Dict]:
     root = ET.fromstring(xml_content)
     result = {}
@@ -121,7 +117,6 @@ def parse_overunder(xml_content: str) -> Dict[str, Dict]:
             data[f] = float(val) if val is not None else 0.0
         result[match_id] = data
     return result
-
 def parse_windrawwin(xml_content: str) -> Dict[str, Dict]:
     root = ET.fromstring(xml_content)
     result = {}
@@ -136,10 +131,8 @@ def parse_windrawwin(xml_content: str) -> Dict[str, Dict]:
             data[f] = float(val) if val is not None else 0.0
         result[match_id] = data
     return result
-
 def parse_windrawwinfirsthalf(xml_content: str) -> Dict[str, Dict]:
     return parse_windrawwin(xml_content)
-
 def parse_winodds(xml_content: str) -> Dict[str, Dict]:
     root = ET.fromstring(xml_content)
     result = {}
@@ -159,7 +152,6 @@ def parse_winodds(xml_content: str) -> Dict[str, Dict]:
             data["var"] = []
         result[match_id] = data
     return result
-
 class FootballDataLoader:
     def __init__(self):
         self.numberofgoals = {}
@@ -172,7 +164,6 @@ class FootballDataLoader:
         self.winodds = {}
         self.ordered_ids = []
         self.all_ids = set()
-
     def load_from_dict(self, file_dict: Dict[str, str]):
         for filename, content in file_dict.items():
             if "numberofgoals" in filename:
@@ -194,7 +185,6 @@ class FootballDataLoader:
                 self.windrawwinfirsthalf = parse_windrawwinfirsthalf(content)
             elif "winodds" in filename:
                 self.winodds = parse_winodds(content)
-
     def get_odds_for_match(self, match_id: str) -> Tuple[List[float], List[float]]:
         if match_id not in self.numberofgoals:
             return [1.0]*6, [1.0]*6
@@ -202,7 +192,6 @@ class FootballDataLoader:
         home_odds = [data.get(f"h{i}", 1.0) for i in range(1, 7)]
         away_odds = [data.get(f"a{i}", 1.0) for i in range(1, 7)]
         return home_odds, away_odds
-
     def get_match_basic_info(self, match_id: str) -> Dict[str, Optional[str]]:
         if match_id not in self.odds_config:
             return {"gt": None, "st": None, "sh": None, "sa": None}
@@ -213,19 +202,16 @@ class FootballDataLoader:
             "sh": cfg.get("sh"),
             "sa": cfg.get("sa")
         }
-
     def get_windrawwin_odds(self, match_id: str) -> Tuple[float, float, float]:
         if match_id in self.windrawwin:
             data = self.windrawwin[match_id]
             return data.get("ho", 0.0), data.get("do", 0.0), data.get("ao", 0.0)
         return 0.0, 0.0, 0.0
-
     def get_overunder_odds(self, match_id: str) -> Tuple[float, float, float]:
         if match_id in self.overunder:
             data = self.overunder[match_id]
             return data.get("oo", 0.0), data.get("uo", 0.0), data.get("li", 0.0)
         return 0.0, 0.0, 0.0
-
     def get_correctscore_odds(self, match_id: str) -> List[float]:
         if match_id not in self.correctscore:
             return [0.0]*26
@@ -238,7 +224,6 @@ class FootballDataLoader:
         for i in range(11, 17):
             odds.append(data.get(f"o{i}", 0.0))
         return odds
-
 # ================= 赔率转概率 =================
 def odds_to_probs(odds_home: List[float], odds_away: List[float]) -> Tuple[List[float], List[float]]:
     def calc_E(odds_list):
@@ -255,8 +240,7 @@ def odds_to_probs(odds_home: List[float], odds_away: List[float]) -> Tuple[List[
     home_probs = calc_E(odds_home[:6])
     away_probs = calc_E(odds_away[:6])
     return home_probs, away_probs
-
-# ================= 核心模拟函数 =================
+# ================= 核心模拟函数（原有） =================
 def simulate_goals_vectorized(probs, n_sims):
     rand_vals = np.random.random((n_sims, 5))
     success = rand_vals >= np.array(probs)
@@ -268,30 +252,25 @@ def simulate_goals_vectorized(probs, n_sims):
         else:
             goals[i] = np.argmin(row)
     return goals
-
 def run_simulation(home_p, away_p, n_sims):
     start_time = time.time()
     home_goals = simulate_goals_vectorized(home_p, n_sims)
     away_goals = simulate_goals_vectorized(away_p, n_sims)
-
     results = pd.DataFrame({
         'home_goals': home_goals,
         'away_goals': away_goals
     })
     results['score'] = results['home_goals'].astype(str) + '-' + results['away_goals'].astype(str)
     results['total_goals'] = results['home_goals'] + results['away_goals']
-
     score_counts = results['score'].value_counts().reset_index()
     score_counts.columns = ['比分', '频次']
     score_counts['概率'] = score_counts['频次'] / n_sims
     score_counts['百分比'] = score_counts['概率'].apply(lambda x: f"{x:.4%}")
-
     home_win_prob = (results['home_goals'] > results['away_goals']).mean()
     draw_prob = (results['home_goals'] == results['away_goals']).mean()
     away_win_prob = (results['home_goals'] < results['away_goals']).mean()
     exp_home = results['home_goals'].mean()
     exp_away = results['away_goals'].mean()
-
     total_goals_dist = results['total_goals'].value_counts().sort_index()
     total_goals_df = pd.DataFrame({
         '总进球': total_goals_dist.index,
@@ -299,7 +278,6 @@ def run_simulation(home_p, away_p, n_sims):
         '概率': total_goals_dist.values / n_sims
     })
     total_goals_df['百分比'] = total_goals_df['概率'].apply(lambda x: f"{x:.4%}")
-
     home_goal_dist = pd.Series(home_goals).value_counts().sort_index()
     away_goal_dist = pd.Series(away_goals).value_counts().sort_index()
     for g in range(6):
@@ -309,9 +287,7 @@ def run_simulation(home_p, away_p, n_sims):
             away_goal_dist[g] = 0
     home_goal_dist = home_goal_dist.sort_index()
     away_goal_dist = away_goal_dist.sort_index()
-
     elapsed = time.time() - start_time
-
     return {
         'score_counts': score_counts,
         'home_win_prob': home_win_prob,
@@ -325,7 +301,143 @@ def run_simulation(home_p, away_p, n_sims):
         'n_sims': n_sims,
         'elapsed': elapsed
     }
-
+# ================= 轮次模拟模型（新增 MatchSimulator） =================
+class MatchSimulator:
+    def __init__(self, home_odds, away_odds):
+        self.home_odds = home_odds
+        self.away_odds = away_odds
+        # 预计算主客队各进球数状态下的“无进球概率”
+        self.home_no_goal_probs = self._calc_no_goal_probs(home_odds)
+        self.away_no_goal_probs = self._calc_no_goal_probs(away_odds)
+    def _calc_no_goal_probs(self, odds):
+        """根据赔率计算各进球数对应的无进球概率"""
+        inv_sum = sum(1/o for o in odds)
+        K = 1 / inv_sum  # 所有赔率倒数和的倒数
+        probs = [K / o for o in odds]
+        
+        no_goal_probs = []
+        cum_prob = 0.0
+        for p in probs:
+            rem = 1.0 - cum_prob
+            if rem <= 1e-9:
+                no_goal_probs.append(1.0)
+            else:
+                # 当前状态下无进球的概率 = 对应进球数概率 / 剩余概率空间
+                no_goal_probs.append(p / rem)
+            cum_prob += p
+        return no_goal_probs
+    def simulate_one(self):
+        """执行单场模拟，返回最终比分及详细轮次记录"""
+        h_score, a_score = 0, 0
+        history = []
+        rnd = 1
+        turn = 'home'  # 初始由主队先攻
+        
+        while True:
+            # 获取当前比分对应的无进球概率阈值（防止越界，取最大值）
+            h_thresh = self.home_no_goal_probs[min(h_score, len(self.home_no_goal_probs)-1)]
+            a_thresh = self.away_no_goal_probs[min(a_score, len(self.away_no_goal_probs)-1)]
+            if turn == 'home':
+                # 主队进攻
+                r = random.random()
+                scored = r > h_thresh
+                history.append({
+                    '轮次': rnd, 
+                    '进攻方': '主队', 
+                    '随机数': round(r, 6), 
+                    '无进球概率阈值': round(h_thresh, 6), 
+                    '是否进球': '✅ 是' if scored else '❌ 否', 
+                    '当前比分': f"{h_score}-{a_score}"
+                })
+                if scored:
+                    h_score += 1
+                    turn = 'away'  # 主队得分，下一轮客队先开始
+                    rnd += 1
+                    continue
+                else:
+                    # 主队未进，客队补攻
+                    r2 = random.random()
+                    scored2 = r2 > a_thresh
+                    history.append({
+                        '轮次': rnd, 
+                        '进攻方': '客队', 
+                        '随机数': round(r2, 6), 
+                        '无进球概率阈值': round(a_thresh, 6), 
+                        '是否进球': '✅ 是' if scored2 else '❌ 否', 
+                        '当前比分': f"{h_score}-{a_score}"
+                    })
+                    if scored2:
+                        a_score += 1
+                        turn = 'home'  # 客队得分，下一轮主队先开始
+                        rnd += 1
+                        continue
+                    else:
+                        # 双方均未进球，比赛结束
+                        break
+            else:
+                # 客队进攻
+                r = random.random()
+                scored = r > a_thresh
+                history.append({
+                    '轮次': rnd, 
+                    '进攻方': '客队', 
+                    '随机数': round(r, 6), 
+                    '无进球概率阈值': round(a_thresh, 6), 
+                    '是否进球': '✅ 是' if scored else '❌ 否', 
+                    '当前比分': f"{h_score}-{a_score}"
+                })
+                if scored:
+                    a_score += 1
+                    turn = 'home'
+                    rnd += 1
+                    continue
+                else:
+                    # 客队未进，主队补攻
+                    r2 = random.random()
+                    scored2 = r2 > h_thresh
+                    history.append({
+                        '轮次': rnd, 
+                        '进攻方': '主队', 
+                        '随机数': round(r2, 6), 
+                        '无进球概率阈值': round(h_thresh, 6), 
+                        '是否进球': '✅ 是' if scored2 else '❌ 否', 
+                        '当前比分': f"{h_score}-{a_score}"
+                    })
+                    if scored2:
+                        h_score += 1
+                        turn = 'away'
+                        rnd += 1
+                        continue
+                    else:
+                        break
+                        
+        return h_score, a_score, history
+def run_round_simulation(home_odds, away_odds, n_sims):
+    """批量轮次模拟，返回统计结果"""
+    sim = MatchSimulator(home_odds, away_odds)
+    scores = []
+    round_counts = []
+    for _ in range(n_sims):
+        h, a, hist = sim.simulate_one()
+        scores.append(f"{h}-{a}")
+        round_counts.append(len(hist))
+    
+    results = pd.DataFrame({'比分': scores, '轮次数': round_counts})
+    score_dist = results['比分'].value_counts().reset_index()
+    score_dist.columns = ['比分', '频次']
+    score_dist['概率'] = score_dist['频次'] / n_sims
+    score_dist['百分比'] = score_dist['概率'].apply(lambda x: f"{x:.4%}")
+    
+    round_dist = results['轮次数'].value_counts().sort_index().reset_index()
+    round_dist.columns = ['轮次数', '频次']
+    round_dist['概率'] = round_dist['频次'] / n_sims
+    round_dist['百分比'] = round_dist['概率'].apply(lambda x: f"{x:.4%}")
+    
+    return {
+        'score_dist': score_dist,
+        'round_dist': round_dist,
+        'n_sims': n_sims
+    }
 # ================= 页面配置 =================
 st.set_page_config(
     page_title="足球比分模拟器",
@@ -333,7 +445,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
 st.markdown("""
 <style>
     .main-header { font-size: 32px; font-weight: bold; color: #1F4E79; text-align: center; margin-bottom: 20px; }
@@ -358,7 +469,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
 # ================= 自动加载XML数据 (增加TTL缓存) =================
 @st.cache_resource(ttl=600, show_spinner=False)   # 10分钟自动过期
 def load_xml_from_github():
@@ -393,27 +503,22 @@ def load_xml_from_github():
     else:
         st.error("部分文件加载失败，请检查网络后刷新页面重试。")
         return None
-
 with st.spinner("正在从 GitHub 加载比赛数据，请稍候..."):
     loader = load_xml_from_github()
-
 if loader is None:
     st.stop()
-
 # 初始化会话状态
 for i in range(5):
     if f"home_p_{i}" not in st.session_state:
         st.session_state[f"home_p_{i}"] = 0.0
     if f"away_p_{i}" not in st.session_state:
         st.session_state[f"away_p_{i}"] = 0.0
-
 if "selected_match_id" not in st.session_state or st.session_state.selected_match_id not in loader.ordered_ids:
     if loader.ordered_ids:
         st.session_state.selected_match_id = loader.ordered_ids[0]
     else:
         st.error("未找到任何比赛ID，请检查数据源。")
         st.stop()
-
 # 自动转换赔率
 def update_probs_from_match_id(match_id):
     home_odds, away_odds = loader.get_odds_for_match(match_id)
@@ -421,10 +526,8 @@ def update_probs_from_match_id(match_id):
     for i in range(5):
         st.session_state[f"home_p_{i}"] = home_probs[i]
         st.session_state[f"away_p_{i}"] = away_probs[i]
-
 if all(st.session_state[f"home_p_{i}"] == 0.0 for i in range(5)):
     update_probs_from_match_id(st.session_state.selected_match_id)
-
 # ================= 顶部固定区域（导航 + 基本信息 + ID选择） =================
 with st.container():
     st.markdown('<div class="sticky-header">', unsafe_allow_html=True)
@@ -432,7 +535,7 @@ with st.container():
     # 水平导航（使用 radio 实现）
     page = st.radio(
         "选择页面",
-        ["首页", "胜平负", "总进球", "比分"],
+        ["首页", "胜平负", "总进球", "比分", "轮次模拟"],
         horizontal=True,
         label_visibility="collapsed",
         key="page_nav"
@@ -468,18 +571,15 @@ with st.container():
         st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
-
 # ================= 侧边栏（增加手动刷新按钮） =================
 st.sidebar.header("⚙️ 设置面板")
 st.sidebar.subheader("🔢 模拟设置")
 sim_times = 1000000
 run_sim = st.sidebar.button("🚀 开始模拟", type="primary", use_container_width=True)
-
 # 手动刷新数据源按钮（解决缓存过期问题）
 if st.sidebar.button("🔄 刷新数据源", use_container_width=True):
     st.cache_resource.clear()
     st.rerun()
-
 st.sidebar.markdown("---")
 st.sidebar.caption("""
 **规则说明**  
@@ -488,11 +588,9 @@ st.sidebar.caption("""
 - 连续进球直至失败或进满5球  
 - 比分组合统计后计算分布  
 """)
-
 # ================= 执行模拟 =================
 if 'sim_data' not in st.session_state:
     st.session_state.sim_data = None
-
 if run_sim:
     home_probs = [st.session_state[f"home_p_{i}"] for i in range(5)]
     away_probs = [st.session_state[f"away_p_{i}"] for i in range(5)]
@@ -500,9 +598,7 @@ if run_sim:
         data = run_simulation(home_probs, away_probs, sim_times)
         st.session_state.sim_data = data
     st.success(f"✅ 模拟完成！耗时 {data['elapsed']:.3f} 秒")
-
 data = st.session_state.sim_data
-
 # ================= 根据页面显示不同内容 =================
 if page == "首页":
     st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 闯关概率模型</p>', unsafe_allow_html=True)
@@ -584,7 +680,6 @@ if page == "首页":
         hm_df = pd.DataFrame(heatmap_data, index=[f"主{i}" for i in range(6)], columns=[f"客{i}" for i in range(6)])
         st.dataframe(hm_df.style.format("{:.2f}%").background_gradient(cmap='Blues', axis=None))
     st.caption(f"模拟次数: {data['n_sims']:,} 次 ")
-
 elif page == "胜平负":
     st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 闯关概率模型之胜平负</p>', unsafe_allow_html=True)
     if data is None:
@@ -603,7 +698,6 @@ elif page == "胜平负":
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.bar_chart(pd.DataFrame({'赔付':payouts}, index=["主胜","平局","客胜"]))
-
 elif page == "总进球":
     st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 闯关概率模型之总进球</p>', unsafe_allow_html=True)
     if data is None:
@@ -635,7 +729,6 @@ elif page == "总进球":
         fig = px.bar(plot_df, x='总进球', y='大小', title='大小球期望值 (正为大球，负为小球)', text=plot_df['大小'].apply(lambda x: f"{x:.3f}"))
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True)
-
 elif page == "比分":
     st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 闯关概率模型之比分</p>', unsafe_allow_html=True)
     if data is None:
@@ -674,6 +767,69 @@ elif page == "比分":
         df_scores['赔率'] = df_scores['赔率'].apply(lambda x: f"{x:.2f}" if x != 0 else "-")
         df_scores['赔付'] = df_scores['赔付'].apply(lambda x: f"{x:.4f}")
     st.dataframe(df_scores, use_container_width=True, hide_index=True)
-
+elif page == "轮次模拟":
+    st.markdown('<p class="main-header">⚽ 足球比分模拟器 · 轮次模拟</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">🎲 批量轮次模拟统计</p>', unsafe_allow_html=True)
+    
+    # 获取当前比赛的赔率
+    match_id = st.session_state.selected_match_id
+    home_odds, away_odds = loader.get_odds_for_match(match_id)
+    
+    # 显示当前赔率
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**🏠 主队进球数赔率**")
+        st.dataframe(pd.DataFrame({'进球数': [0,1,2,3,4,5], '赔率': home_odds}), use_container_width=True, hide_index=True)
+    with col2:
+        st.markdown("**✈️ 客队进球数赔率**")
+        st.dataframe(pd.DataFrame({'进球数': [0,1,2,3,4,5], '赔率': away_odds}), use_container_width=True, hide_index=True)
+    
+    # 模拟设置
+    st.markdown("---")
+    col_n, col_btn = st.columns([2, 1])
+    with col_n:
+        n_round_sims = st.number_input("模拟次数", min_value=100, max_value=100000, value=10000, step=1000, help="建议 10000 次以上以获得稳定统计")
+    with col_btn:
+        run_round_sim = st.button("🚀 开始轮次模拟", type="primary", use_container_width=True)
+    
+    if run_round_sim:
+        with st.spinner(f"⏳ 正在进行 {n_round_sims:,} 次轮次模拟，请稍候..."):
+            round_data = run_round_simulation(home_odds, away_odds, n_round_sims)
+        st.success(f"✅ 轮次模拟完成！共模拟 {n_round_sims:,} 场")
+        
+        # 比分分布
+        st.markdown('<p class="sub-header">📊 比分分布</p>', unsafe_allow_html=True)
+        col_score_table, col_score_chart = st.columns([1, 2])
+        with col_score_table:
+            st.dataframe(round_data['score_dist'], use_container_width=True, hide_index=True)
+        with col_score_chart:
+            if PLOTLY_AVAILABLE:
+                fig_score = px.bar(round_data['score_dist'].head(15), x='比分', y='概率', text='百分比', title='比分概率分布（前15）', color='概率', color_continuous_scale='viridis')
+                fig_score.update_traces(textposition='outside')
+                fig_score.update_layout(yaxis_tickformat='.0%', height=400)
+                st.plotly_chart(fig_score, use_container_width=True)
+            else:
+                st.bar_chart(round_data['score_dist'].set_index('比分')['概率'])
+        
+        # 轮次数分布
+        st.markdown('<p class="sub-header">🔄 轮次数分布</p>', unsafe_allow_html=True)
+        col_round_table, col_round_chart = st.columns([1, 2])
+        with col_round_table:
+            st.dataframe(round_data['round_dist'], use_container_width=True, hide_index=True)
+        with col_round_chart:
+            if PLOTLY_AVAILABLE:
+                fig_round = px.bar(round_data['round_dist'], x='轮次数', y='概率', text='百分比', title='轮次数概率分布', color='概率', color_continuous_scale='blues')
+                fig_round.update_traces(textposition='outside')
+                fig_round.update_layout(yaxis_tickformat='.0%', height=400)
+                st.plotly_chart(fig_round, use_container_width=True)
+            else:
+                st.bar_chart(round_data['round_dist'].set_index('轮次数')['概率'])
+        
+        # 单场示例
+        st.markdown('<p class="sub-header">🎯 单场模拟示例（最新一场）</p>', unsafe_allow_html=True)
+        sim = MatchSimulator(home_odds, away_odds)
+        h, a, hist = sim.simulate_one()
+        st.dataframe(pd.DataFrame(hist), use_container_width=True, hide_index=True)
+        st.info(f"🏆 示例最终比分: 主队 {h} - {a} 客队")
 st.markdown("---")
 st.caption("数据基于闯关概率模型模拟生成，实际结果可能因随机性有所波动。")
