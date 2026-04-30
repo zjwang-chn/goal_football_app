@@ -963,12 +963,27 @@ elif page == "轮次模拟":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("**🏠 主队进球数赔率**")
-        st.dataframe(pd.DataFrame({'进球数': list(range(6)), '赔率': home_odds}), use_container_width=True, hide_index=True)
+        # 构建包含“不再进球概率”的DataFrame
+        home_df = pd.DataFrame({
+            '进球数': list(range(6)),
+            '赔率': home_odds,
+            '不再进球概率': home_no_goal
+        })
+        # 格式化概率显示为百分比
+        home_df['不再进球概率'] = home_df['不再进球概率'].apply(lambda x: f"{x:.4%}")
+        st.dataframe(home_df, use_container_width=True, hide_index=True)
     with col2:
         st.markdown("**✈️ 客队进球数赔率**")
-        st.dataframe(pd.DataFrame({'进球数': list(range(6)), '赔率': away_odds}), use_container_width=True, hide_index=True)
+        away_df = pd.DataFrame({
+            '进球数': list(range(6)),
+            '赔率': away_odds,
+            '不再进球概率': away_no_goal
+        })
+        away_df['不再进球概率'] = away_df['不再进球概率'].apply(lambda x: f"{x:.4%}")
+        st.dataframe(away_df, use_container_width=True, hide_index=True)
 
     st.markdown("---")
+    # ... 后续代码保持不变 ...
     col_n, col_btn = st.columns([2, 1])
     with col_n:
         n_round_sims = st.number_input("模拟次数", min_value=100, max_value=100000, value=10000, step=1000)
