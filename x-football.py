@@ -5,7 +5,7 @@
 基于闯关概率模型 (Streamlit 多页面版)
 功能：主/客队独立进球模拟 → 比分分布统计 → 可视化分析
 自动从GitHub加载预设XML数据，赔率自动转概率
-轮次模拟页面：基于动态概率的回合制模拟（源自mini.py逻辑，已适配x-football.py规则）
+轮次模拟页面：基于动态概率的回合制模拟（规则已升级：每轮比较par值决定进攻顺序）
 """
 import streamlit as st
 import numpy as np
@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 import requests
 from typing import Dict, List, Optional, Tuple
 import random
+import math
 
 # 导入 plotly
 try:
@@ -347,11 +348,14 @@ def run_simulation(home_p, away_p, n_sims):
         'elapsed': elapsed
     }
 
-# ================= 轮次模拟模型（参照 x-football.py 逻辑，适配动态赔率） =================
+# ================= 轮次模拟模型（升级版：基于 par 值决定进攻顺序） =================
 def calculate_probabilities(odds_list):
-    """根据赔率列表（长度6，索引0~5）计算：
+    """
+    根据赔率列表（长度6，索引0~5）计算：
        - probs: 整场恰好进k球的概率（赔率倒数的归一化）
-       - no_goal_probs: 当前已进k球时，不再进球的概率"""
+       - no_goal_probs: 当前已进k球时，不再进球的概率
+       - par_list: -ln(no_goal_probs)，表示进攻优先级（值越大越可能先进攻）
+    """
     inv_sum = sum(1.0 / o for o in odds_list)
     factor = 1.0 / inv_sum
     probs = [factor / o for o in odds_list]
@@ -365,32 +369,55 @@ def calculate_probabilities(odds_list):
             no_goal = p / (1 - cum)
         no_goal_probs.append(no_goal)
         cum += p
-    return probs, no_goal_probs
 
-def simulate_one_match(home_no_goal_probs, away_no_goal_probs):
+    # 计算 par = -ln(no_goal_probs)
+    par_list = []
+    for ng in no_goal_probs:
+        # 避免 ln(0) 或极小值
+        ng_safe = max(ng, 1e-10)  # 极小正数
+        # 当 ng >= 1 时 par = 0
+        if ng >= 1.0:
+            par = 0.0
+        else:
+            par = -math.log(ng_safe)
+        par_list.append(par)
+
+    return probs, no_goal_probs, par_list
+
+def simulate_one_match(home_no_goal_probs, home_par, away_no_goal_probs, away_par):
     """
-    单场比赛模拟（回合制进攻）
-    规则与 x-football.py 完全一致：
-      - 每轮由一支球队先攻，若该队进球则下一轮由对方先攻；
-      - 若该队未进球，则对方获得进攻机会：
-          * 若对方进球，则下一轮由本队先攻；
-          * 若对方也未进球，比赛立即结束。
-      - 双方进球数达到 MAX_GOALS 后强制结束（概率表中5球时无进球概率=1）
+    单场比赛模拟（基于 par 值决定每轮进攻顺序）
+    规则：
+      1. 每轮比较当前状态下 home_par[home_goals] 与 away_par[away_goals]，
+         值大的球队先攻；若相等则主队先攻。
+      2. 若进攻方得分，本轮结束，更新比分，下一轮重新比较 par。
+      3. 若进攻方未得分，则由防守方获得一次进攻机会：
+         - 若防守方得分，本轮结束，更新比分，下一轮重新比较 par。
+         - 若防守方也未进球，比赛立即结束。
+      4. 任意一方进球数达到 MAX_GOALS 后强制结束。
     """
     home_goals = 0
     away_goals = 0
     round_history = []
     rounds = 0
-    turn = "home"  # "home" 或 "away"，表示本轮先攻方
 
-    rand = random.random  # 局部引用加速
+    rand = random.random
 
     while True:
         rounds += 1
+        # 决定本轮先攻方
+        p_home = home_par[home_goals]
+        p_away = away_par[away_goals]
+        if p_home > p_away:
+            attacker = "home"
+        elif p_away > p_home:
+            attacker = "away"
+        else:
+            attacker = "home"  # 相等时主队先攻
 
-        if turn == "home":
+        # 进攻过程
+        if attacker == "home":
             r = rand()
-            # 主队进攻
             if r < home_no_goal_probs[home_goals]:
                 # 主队未进球 → 客队进攻
                 r2 = rand()
@@ -418,8 +445,7 @@ def simulate_one_match(home_no_goal_probs, away_no_goal_probs):
                         "客队是否进球": "是",
                         "当前比分": f"{home_goals}-{away_goals}"
                     })
-                    # 客队进球后，下一轮由主队先攻
-                    turn = "home"
+                    # 本轮结束，下一轮重新比较 par
             else:
                 # 主队进球
                 home_goals += 1
@@ -432,10 +458,7 @@ def simulate_one_match(home_no_goal_probs, away_no_goal_probs):
                     "客队是否进球": "",
                     "当前比分": f"{home_goals}-{away_goals}"
                 })
-                # 主队进球后，下一轮由客队先攻
-                turn = "away"
-
-        else:  # turn == "away"
+        else:  # attacker == "away"
             r = rand()
             if r < away_no_goal_probs[away_goals]:
                 # 客队未进球 → 主队进攻
@@ -464,8 +487,6 @@ def simulate_one_match(home_no_goal_probs, away_no_goal_probs):
                         "客队是否进球": "否",
                         "当前比分": f"{home_goals}-{away_goals}"
                     })
-                    # 主队进球后，下一轮仍由客队先攻
-                    turn = "away"
             else:
                 # 客队进球
                 away_goals += 1
@@ -478,11 +499,9 @@ def simulate_one_match(home_no_goal_probs, away_no_goal_probs):
                     "客队是否进球": "是",
                     "当前比分": f"{home_goals}-{away_goals}"
                 })
-                # 客队进球后，下一轮由主队先攻
-                turn = "home"
 
-        # 双方均达到最大进球数则强制结束
-        if home_goals >= MAX_GOALS and away_goals >= MAX_GOALS:
+        # 任何一方达到最大进球数则强制结束
+        if home_goals >= MAX_GOALS or away_goals >= MAX_GOALS:
             break
 
     return {
@@ -493,11 +512,11 @@ def simulate_one_match(home_no_goal_probs, away_no_goal_probs):
         "history": pd.DataFrame(round_history)
     }
 
-def simulate_matches(home_no_goal_probs, away_no_goal_probs, n, progress_bar=None):
+def simulate_matches(home_no_goal_probs, home_par, away_no_goal_probs, away_par, n, progress_bar=None):
     """批量模拟 n 场比赛，返回汇总数据的 DataFrame"""
     results = []
     for i in range(n):
-        res = simulate_one_match(home_no_goal_probs, away_no_goal_probs)
+        res = simulate_one_match(home_no_goal_probs, home_par, away_no_goal_probs, away_par)
         results.append({
             "final_score": res["final_score"],
             "home_goals": res["home_goals"],
@@ -535,6 +554,10 @@ st.markdown("""
     .stRadio > div {
         flex-direction: row;
         gap: 20px;
+    }
+    /* 高亮样式 */
+    .highlight-row {
+        background-color: #d4edda !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -952,38 +975,39 @@ elif page == "比分":
     st.dataframe(df_scores, use_container_width=True, hide_index=True)
 
 elif page == "轮次模拟":
-    st.markdown('<p class="main-header">⏱️ 轮次模拟（回合制进攻）</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">⏱️ 轮次模拟（回合制进攻 · 基于 par 值决定顺序）</p>', unsafe_allow_html=True)
     match_id = st.session_state.selected_match_id
     home_odds, away_odds = loader.get_odds_for_match(match_id)
 
-    # 计算条件概率
-    _, home_no_goal = calculate_probabilities(home_odds)
-    _, away_no_goal = calculate_probabilities(away_odds)
+    # 计算条件概率及 par 值
+    _, home_no_goal, home_par = calculate_probabilities(home_odds)
+    _, away_no_goal, away_par = calculate_probabilities(away_odds)
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("**🏠 主队进球数赔率**")
-        # 构建包含“不再进球概率”的DataFrame
+        st.markdown("**🏠 主队进球数赔率与参数**")
         home_df = pd.DataFrame({
             '进球数': list(range(6)),
             '赔率': home_odds,
-            '不再进球概率': home_no_goal
+            '不再进球概率': home_no_goal,
+            'par值 (-ln)': home_par
         })
-        # 格式化概率显示为百分比
         home_df['不再进球概率'] = home_df['不再进球概率'].apply(lambda x: f"{x:.4%}")
+        home_df['par值 (-ln)'] = home_df['par值 (-ln)'].apply(lambda x: f"{x:.4f}")
         st.dataframe(home_df, use_container_width=True, hide_index=True)
     with col2:
-        st.markdown("**✈️ 客队进球数赔率**")
+        st.markdown("**✈️ 客队进球数赔率与参数**")
         away_df = pd.DataFrame({
             '进球数': list(range(6)),
             '赔率': away_odds,
-            '不再进球概率': away_no_goal
+            '不再进球概率': away_no_goal,
+            'par值 (-ln)': away_par
         })
         away_df['不再进球概率'] = away_df['不再进球概率'].apply(lambda x: f"{x:.4%}")
+        away_df['par值 (-ln)'] = away_df['par值 (-ln)'].apply(lambda x: f"{x:.4f}")
         st.dataframe(away_df, use_container_width=True, hide_index=True)
 
     st.markdown("---")
-    # ... 后续代码保持不变 ...
     col_n, col_btn = st.columns([2, 1])
     with col_n:
         n_round_sims = st.number_input("模拟次数", min_value=100, max_value=100000, value=10000, step=1000)
@@ -991,10 +1015,9 @@ elif page == "轮次模拟":
         run_round_sim = st.button("🚀 开始轮次模拟", type="primary", use_container_width=True)
 
     if run_round_sim:
-        # 添加进度条，提升用户体验
         progress_bar = st.progress(0, text="初始化...")
         with st.spinner(f"⏳ 正在进行 {n_round_sims:,} 次轮次模拟..."):
-            df_results = simulate_matches(home_no_goal, away_no_goal, n_round_sims, progress_bar=progress_bar)
+            df_results = simulate_matches(home_no_goal, home_par, away_no_goal, away_par, n_round_sims, progress_bar=progress_bar)
         progress_bar.empty()
         st.success(f"✅ 模拟完成！共模拟 {n_round_sims:,} 场")
 
@@ -1017,14 +1040,23 @@ elif page == "轮次模拟":
             else:
                 st.bar_chart(score_counts.set_index("比分")["概率"])
 
-        # 轮次分布
+        # 轮次分布 & 高亮概率 >= 0.1 的行（背景浅绿）
         st.markdown('<p class="sub-header">🔄 轮次数分布</p>', unsafe_allow_html=True)
         round_counts = df_results.groupby("rounds").size().reset_index(name="次数")
         round_counts["概率"] = round_counts["次数"] / n_round_sims
         round_counts["百分比"] = round_counts["概率"].apply(lambda x: f"{x:.4%}")
+
         col_left2, col_right2 = st.columns([1, 2])
         with col_left2:
-            st.dataframe(round_counts, use_container_width=True, hide_index=True)
+            # 高亮概率 >= 0.1 的行
+            def highlight_prob(row):
+                if row["概率"] >= 0.1:
+                    return ["background-color: #d4edda" for _ in row]
+                    #return ["font-weight: bold" for _ in row]
+                else:
+                    return ["" for _ in row]
+            styled_df = round_counts.style.apply(highlight_prob, axis=1).format({"概率": "{:.4%}"})
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
         with col_right2:
             if PLOTLY_AVAILABLE:
                 fig2 = px.bar(round_counts, x="rounds", y="概率", text="百分比", title="轮次数概率分布")
@@ -1036,7 +1068,7 @@ elif page == "轮次模拟":
 
         # 单场示例
         st.markdown('<p class="sub-header">🎯 单场模拟示例（最新一场）</p>', unsafe_allow_html=True)
-        example = simulate_one_match(home_no_goal, away_no_goal)
+        example = simulate_one_match(home_no_goal, home_par, away_no_goal, away_par)
         st.dataframe(example["history"], use_container_width=True, hide_index=True)
         st.info(f"🏆 示例最终比分: 主队 {example['home_goals']} - {example['away_goals']} 客队")
 
