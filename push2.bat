@@ -28,6 +28,6 @@ echo ========================================
 
 echo 程序将在10秒后自动关闭...
 echo ========================================
-timeout /t 10 /nobreak >nul
+::timeout /t 10 /nobreak >nul
 
 endlocal
