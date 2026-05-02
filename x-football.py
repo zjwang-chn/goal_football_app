@@ -1144,7 +1144,7 @@ elif page == "轮次模拟":
         st.dataframe(example["history"], use_container_width=True, hide_index=True)
         st.info(f"🏆 示例最终比分: 主队 {example['home_goals']} - {example['away_goals']} 客队")
 
-elif page == "自动运算结果":
+elif page == "分析记录库":
     st.markdown('<p class="main-header">📋 分析记录库</p>', unsafe_allow_html=True)
     
     if not st.session_state.analysis_records:
