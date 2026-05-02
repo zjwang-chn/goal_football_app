@@ -698,7 +698,7 @@ with st.container():
     st.markdown('<div class="sticky-header">', unsafe_allow_html=True)
     page = st.radio(
         "选择页面",
-        ["首页", "赔率一览", "总进球", "比分", "轮次模拟", "自动运算结果"],
+        ["首页", "赔率一览", "总进球", "比分", "轮次模拟", "分析记录库"],
         horizontal=True,
         label_visibility="collapsed",
         key="page_nav"
