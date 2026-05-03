@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Tuple
 import random
 import math
 import datetime
+from datetime import timezone, timedelta  # 新增
 import gc
 import io
 
@@ -33,6 +34,11 @@ except ImportError:
 
 # ================= 常量定义 =================
 MAX_GOALS = 5  # 最大进球数（根据赔率表定义）
+
+# 定义辅助函数
+def get_beijing_time_str():
+    beijing_tz = timezone(timedelta(hours=8))
+    return datetime.datetime.now(beijing_tz).strftime("%Y-%m-%d %H:%M:%S")
 
 # ================= XML 解析模块 =================
 def parse_numberofgoals(xml_content: str) -> Tuple[Dict[str, Dict], List[str]]:
@@ -690,7 +696,7 @@ def update_or_add_core_record(match_id: str, core_data: dict) -> None:
         "期望赔付(平局)": f"{core_data['exp_do']:.4f}",
         "期望赔付(客胜)": f"{core_data['exp_ao']:.4f}",
         "轮次>10%": "待模拟",
-        "记录时间": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "记录时间": get_beijing_time_str()
     }
 
     if existing_index is not None:
@@ -709,7 +715,7 @@ def update_rounds_record(match_id: str, high_prob_rounds: List[int]) -> None:
     for rec in st.session_state.analysis_records:
         if rec.get("match_id") == match_id:
             rec["轮次>10%"] = round_str
-            rec["记录时间"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            rec["记录时间"] = get_beijing_time_str()
             break
 
 # ================= 顶部固定区域 =================
@@ -1259,11 +1265,12 @@ elif page == "分析记录库":
         st.dataframe(df, use_container_width=True, hide_index=True)
 
         # 导出 CSV
+        beijing_now = datetime.datetime.now(timezone(timedelta(hours=8)))
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 导出为 CSV",
             data=csv,
-            file_name=f"analysis_records_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"analysis_records_{beijing_now.strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
         )
 
