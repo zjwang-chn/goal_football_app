@@ -506,9 +506,6 @@ def simulate_matches(home_no_goal_probs, home_par, away_no_goal_probs, away_par,
     return pd.DataFrame(results)
 
 
-
-
-
 # ================= 页面配置 =================
 st.set_page_config(
     page_title="足球比分模拟器",
@@ -583,6 +580,40 @@ with st.spinner("正在从 GitHub 加载比赛数据，请稍候..."):
 if loader is None:
     st.stop()
 
+# ================= 全局辅助函数 =================
+def update_probs_from_match_id(match_id):
+    """根据比赛ID更新session_state中的概率值"""
+    home_odds, away_odds = loader.get_odds_for_match(match_id)
+    if not home_odds or len(home_odds) < 6:
+        home_odds = [1.0] * 6
+    if not away_odds or len(away_odds) < 6:
+        away_odds = [1.0] * 6
+    home_probs, away_probs = odds_to_probs(home_odds, away_odds)
+    if len(home_probs) < 5:
+        home_probs = home_probs + [0.0] * (5 - len(home_probs))
+    if len(away_probs) < 5:
+        away_probs = away_probs + [0.0] * (5 - len(away_probs))
+    for i in range(5):
+        st.session_state[f"home_p_{i}"] = home_probs[i] if i < len(home_probs) else 0.0
+        st.session_state[f"away_p_{i}"] = away_probs[i] if i < len(away_probs) else 0.0
+
+# ================= 构建联赛 -> 比赛ID映射 =================
+@st.cache_data(ttl=3600)
+def get_league_match_map(_loader):
+    """从 odds_config 中构建 联赛名 -> 比赛ID列表 的字典，按联赛名排序，每个联赛内按ID数字排序"""
+    league_map = {}
+    for match_id, cfg in _loader.odds_config.items():
+        league = cfg.get("st", "未分类")
+        league_map.setdefault(league, []).append(match_id)
+    # 对每个联赛内的ID进行排序（数字排序）
+    for league in league_map:
+        league_map[league] = sorted(league_map[league], key=lambda x: int(x) if x.isdigit() else x)
+    # 返回按联赛名排序的字典
+    return dict(sorted(league_map.items()))
+
+league_match_map = get_league_match_map(loader)
+st.session_state['league_match_map'] = league_match_map
+
 # 初始化会话状态
 for i in range(5):
     if f"home_p_{i}" not in st.session_state:
@@ -590,12 +621,26 @@ for i in range(5):
     if f"away_p_{i}" not in st.session_state:
         st.session_state[f"away_p_{i}"] = 0.0
 
-if "selected_match_id" not in st.session_state or st.session_state.selected_match_id not in loader.ordered_ids:
-    if loader.ordered_ids:
-        st.session_state.selected_match_id = loader.ordered_ids[0]  # 修复：取第一个ID而不是整个列表
-    else:
-        st.error("未找到任何比赛ID，请检查数据源。")
-        st.stop()
+# 初始化选中的比赛ID（取第一个联赛的第一个比赛）
+if "selected_match_id" not in st.session_state:
+    first_league = list(league_match_map.keys())[0]
+    first_match = league_match_map[first_league][0]
+    st.session_state.selected_match_id = first_match
+
+# 确保当前选中的 match_id 有效（可能因为数据刷新而变化）
+current_mid = st.session_state.selected_match_id
+valid = False
+for league, ids in league_match_map.items():
+    if current_mid in ids:
+        valid = True
+        break
+if not valid:
+    first_league = list(league_match_map.keys())[0]
+    st.session_state.selected_match_id = league_match_map[first_league][0]
+
+# 更新概率（如果全为0则执行一次）
+if all(st.session_state[f"home_p_{i}"] == 0.0 for i in range(5)):
+    update_probs_from_match_id(st.session_state.selected_match_id)
 
 if 'sim_data' not in st.session_state:
     st.session_state.sim_data = None
@@ -603,31 +648,6 @@ if 'sim_data' not in st.session_state:
 # 新增：分析记录库（存储核心+轮次合并记录）
 if 'analysis_records' not in st.session_state:
     st.session_state.analysis_records = []
-
-
-def update_probs_from_match_id(match_id):
-    home_odds, away_odds = loader.get_odds_for_match(match_id)
-    # 确保 odds 不为空且长度足够
-    if not home_odds or len(home_odds) < 6:
-        home_odds = [1.0] * 6
-    if not away_odds or len(away_odds) < 6:
-        away_odds = [1.0] * 6
-    
-    home_probs, away_probs = odds_to_probs(home_odds, away_odds)
-    
-    # 确保返回的概率长度足够
-    if len(home_probs) < 5:
-        home_probs = home_probs + [0.0] * (5 - len(home_probs))
-    if len(away_probs) < 5:
-        away_probs = away_probs + [0.0] * (5 - len(away_probs))
-    
-    for i in range(5):
-        st.session_state[f"home_p_{i}"] = home_probs[i] if i < len(home_probs) else 0.0
-        st.session_state[f"away_p_{i}"] = away_probs[i] if i < len(away_probs) else 0.0
-
-
-if all(st.session_state[f"home_p_{i}"] == 0.0 for i in range(5)):
-    update_probs_from_match_id(st.session_state.selected_match_id)
 
 def update_or_add_core_record(match_id: str, core_data: dict) -> None:
     """
@@ -683,7 +703,6 @@ def update_or_add_core_record(match_id: str, core_data: dict) -> None:
     else:
         st.session_state.analysis_records.append(new_record)
 
-
 def update_rounds_record(match_id: str, high_prob_rounds: List[int]) -> None:
     """更新指定比赛的轮次字段"""
     round_str = ", ".join(map(str, high_prob_rounds)) if high_prob_rounds else "无"
@@ -719,16 +738,50 @@ with st.container():
     with col4:
         st.markdown(f"**✈️ 客队**<br>{basic.get('sa', '未提供')}", unsafe_allow_html=True)
 
-    selected_id = st.selectbox(
-        "选择比赛ID",
-        options=loader.ordered_ids,
-        index=loader.ordered_ids.index(st.session_state.selected_match_id),
-        key="match_id_selector"
+    # ---- 联赛 + 比赛ID 联动选择 ----
+    league_map = st.session_state.get('league_match_map', {})
+    if not league_map:
+        st.error("联赛数据缺失，请检查 odds_config.xml")
+        st.stop()
+
+    # 确认当前选中的 match_id 属于哪个联赛
+    current_mid = st.session_state.selected_match_id
+    current_league = None
+    for league, ids in league_map.items():
+        if current_mid in ids:
+            current_league = league
+            break
+    if current_league is None:
+        first_league = list(league_map.keys())[0]
+        current_mid = league_map[first_league][0]
+        st.session_state.selected_match_id = current_mid
+        current_league = first_league
+        update_probs_from_match_id(current_mid)
+
+    selected_league = st.selectbox(
+        "选择联赛",
+        options=list(league_map.keys()),
+        index=list(league_map.keys()).index(current_league),
+        key="league_selector"
     )
-    if selected_id != st.session_state.selected_match_id:
-        st.session_state.selected_match_id = selected_id
-        update_probs_from_match_id(selected_id)
+    match_ids_in_league = league_map[selected_league]
+    if st.session_state.selected_match_id not in match_ids_in_league:
+        st.session_state.selected_match_id = match_ids_in_league[0]
+        update_probs_from_match_id(st.session_state.selected_match_id)
+
+    selected_match_id = st.selectbox(
+        "选择比赛",
+        options=match_ids_in_league,
+        format_func=lambda mid: f"{mid} - {loader.get_match_basic_info(mid).get('sh', '?')} vs {loader.get_match_basic_info(mid).get('sa', '?')}",
+        index=match_ids_in_league.index(st.session_state.selected_match_id),
+        key="match_id_selector_new"
+    )
+    if selected_match_id != st.session_state.selected_match_id:
+        st.session_state.selected_match_id = selected_match_id
+        update_probs_from_match_id(selected_match_id)
         st.rerun()
+    # ---------------------------------
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ================= 侧边栏 =================
@@ -738,6 +791,7 @@ sim_times = 1000000
 run_sim = st.sidebar.button("🚀 开始模拟", type="primary", use_container_width=True)
 if st.sidebar.button("🔄 刷新数据源", use_container_width=True):
     st.cache_resource.clear()
+    st.cache_data.clear()
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -748,7 +802,6 @@ st.sidebar.caption("""
 - 连续进球直至失败或进满5球  
 - 比分组合统计后计算分布  
 """)
-
 
 # ================= 执行基础模拟 =================
 if run_sim:
@@ -1088,7 +1141,7 @@ elif page == "轮次模拟":
             df_results = simulate_matches(home_no_goal, home_par, away_no_goal, away_par, n_round_sims, progress_bar=progress_bar)
         progress_bar.empty()
 
-        # --- 新增：计算高概率轮次并更新到分析记录库 ---
+        # --- 计算高概率轮次并更新到分析记录库 ---
         round_counts = df_results.groupby("rounds").size().reset_index(name="次数")
         round_counts["概率"] = round_counts["次数"] / n_round_sims
         high_prob_rounds = round_counts[round_counts["概率"] >= 0.1]["rounds"].tolist()
@@ -1116,8 +1169,7 @@ elif page == "轮次模拟":
                 st.bar_chart(score_counts.set_index("比分")["概率"])
 
         st.markdown('<p class="sub-header">🔄 轮次数分布</p>', unsafe_allow_html=True)
-        # 注意：round_counts 已经在上方计算过，但后续展示了完整的表格和图表，需要再次使用
-        # 为避免重复计算，可以直接使用现有的 round_counts，但之前已修改过，这里重新生成一次以确保数据一致
+        # 重新计算round_counts（或者使用上面的）
         round_counts = df_results.groupby("rounds").size().reset_index(name="次数")
         round_counts["概率"] = round_counts["次数"] / n_round_sims
         round_counts["百分比"] = round_counts["概率"].apply(lambda x: f"{x:.4%}")
@@ -1146,7 +1198,7 @@ elif page == "轮次模拟":
 
 elif page == "分析记录库":
     st.markdown('<p class="main-header">📋 分析记录库</p>', unsafe_allow_html=True)
-    
+
     if not st.session_state.analysis_records:
         st.info("暂无记录。请在「首页」运行百万次模拟（核心数据）并在「轮次模拟」页面运行模拟（轮次数据），结果将自动合并到同一条记录。")
     else:
@@ -1170,7 +1222,7 @@ elif page == "分析记录库":
                 "记录时间": rec.get("记录时间", "")
             })
         df = pd.DataFrame(display_records)
-        
+
         # 筛选与排序
         col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
         with col_f1:
@@ -1198,14 +1250,14 @@ elif page == "分析记录库":
             if st.button("🗑️ 清空所有记录", use_container_width=True):
                 st.session_state.analysis_records = []
                 st.rerun()
-        
+
         # 额外选项：只显示完整记录（轮次不是“待模拟”）
         show_only_complete = st.checkbox("仅显示完整记录（已有轮次数据）", value=False)
         if show_only_complete:
             df = df[df["轮次>10%"] != "待模拟"]
-        
+
         st.dataframe(df, use_container_width=True, hide_index=True)
-        
+
         # 导出 CSV
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
