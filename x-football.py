@@ -1044,7 +1044,7 @@ elif page == "总进球":
     total_df_display = pd.concat([total_df, total_row], ignore_index=True)
     display_df = total_df_display[['总进球','频次','百分比','大小']].copy()
     display_df['大小'] = display_df['大小'].apply(lambda x: f"{x:.4f}")
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
+    st.dataframe(display_df, use_container_width=True, hide_index=True, height=450)
 
 elif page == "比分":
     st.markdown('<p class="main-header">📊 比分详情 & 净胜球</p>', unsafe_allow_html=True)
