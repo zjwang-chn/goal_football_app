@@ -606,16 +606,20 @@ def update_probs_from_match_id(match_id):
 # ================= 构建联赛 -> 比赛ID映射 =================
 @st.cache_data(ttl=3600)
 def get_league_match_map(_loader):
-    """从 odds_config 中构建 联赛名 -> 比赛ID列表 的字典，按联赛名排序，每个联赛内按ID数字排序"""
+    """从 odds_config 中构建 联赛名 -> 比赛ID列表 的字典，按联赛首次出现顺序排序，每个联赛内按ID数字排序"""
     league_map = {}
+    league_order = []  # 记录联赛首次出现的顺序
     for match_id, cfg in _loader.odds_config.items():
         league = cfg.get("st", "未分类")
+        if league not in league_map:
+            league_order.append(league)
         league_map.setdefault(league, []).append(match_id)
     # 对每个联赛内的ID进行排序（数字排序）
     for league in league_map:
         league_map[league] = sorted(league_map[league], key=lambda x: int(x) if x.isdigit() else x)
-    # 返回按联赛名排序的字典
-    return dict(sorted(league_map.items()))
+    # 按 league_order 顺序构建返回的字典（Python 3.7+ 保持插入顺序）
+    ordered_league_map = {league: league_map[league] for league in league_order}
+    return ordered_league_map
 
 league_match_map = get_league_match_map(loader)
 st.session_state['league_match_map'] = league_match_map
