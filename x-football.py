@@ -691,14 +691,14 @@ def update_or_add_core_record(match_id: str, core_data: dict) -> None:
         "赛事": st_name,
         "主队": sh,
         "客队": sa,
-        "主胜概率": f"{core_data['home_win_prob']:.2%}",
-        "平局概率": f"{core_data['draw_prob']:.2%}",
-        "客胜概率": f"{core_data['away_win_prob']:.2%}",
-        "主队预期进球": f"{core_data['exp_home']:.3f}",
-        "客队预期进球": f"{core_data['exp_away']:.3f}",
-        "期望赔付(主胜)": f"{core_data['exp_ho']:.4f}",
-        "期望赔付(平局)": f"{core_data['exp_do']:.4f}",
-        "期望赔付(客胜)": f"{core_data['exp_ao']:.4f}",
+        "胜概率": f"{core_data['home_win_prob']:.2%}",
+        "平概率": f"{core_data['draw_prob']:.2%}",
+        "负概率": f"{core_data['away_win_prob']:.2%}",
+        "主进球": f"{core_data['exp_home']:.3f}",
+        "客进球": f"{core_data['exp_away']:.3f}",
+        "胜赔付": f"{core_data['exp_ho']:.4f}",
+        "平赔付": f"{core_data['exp_do']:.4f}",
+        "负赔付": f"{core_data['exp_ao']:.4f}",
         "轮次>10%": "待模拟",
         "记录时间": get_beijing_time_str()
     }
@@ -854,13 +854,13 @@ if page == "首页":
     with col1:
         st.markdown(f'<div class="metric-box"><div class="metric-value">{data["home_win_prob"]:.2%}</div><div class="metric-label">🏠 主队胜率</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["draw_prob"]:.2%}</div><div class="metric-label">🤝 平局概率</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["draw_prob"]:.2%}</div><div class="metric-label">🤝 平概率</div></div>', unsafe_allow_html=True)
     with col3:
         st.markdown(f'<div class="metric-box"><div class="metric-value">{data["away_win_prob"]:.2%}</div><div class="metric-label">🚀 客队胜率</div></div>', unsafe_allow_html=True)
     with col4:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["exp_home"]:.3f}</div><div class="metric-label">⚽ 主队预期进球</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["exp_home"]:.3f}</div><div class="metric-label">⚽ 主进球</div></div>', unsafe_allow_html=True)
     with col5:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["exp_away"]:.3f}</div><div class="metric-label">⚽ 客队预期进球</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["exp_away"]:.3f}</div><div class="metric-label">⚽ 客进球</div></div>', unsafe_allow_html=True)
 
     st.markdown('<p class="sub-header">📊 胜平负概率与赔付</p>', unsafe_allow_html=True)
     match_id = st.session_state.selected_match_id
@@ -1220,14 +1220,14 @@ elif page == "分析记录库":
                 "赛事": rec.get("赛事", ""),
                 "主队": rec.get("主队", ""),
                 "客队": rec.get("客队", ""),
-                "主胜概率": rec.get("主胜概率", ""),
-                "平局概率": rec.get("平局概率", ""),
-                "客胜概率": rec.get("客胜概率", ""),
-                "主队预期进球": rec.get("主队预期进球", ""),
-                "客队预期进球": rec.get("客队预期进球", ""),
-                "期望赔付(主胜)": rec.get("期望赔付(主胜)", ""),
-                "期望赔付(平局)": rec.get("期望赔付(平局)", ""),
-                "期望赔付(客胜)": rec.get("期望赔付(客胜)", ""),
+                "胜概率": rec.get("胜概率", ""),
+                "平概率": rec.get("平概率", ""),
+                "负概率": rec.get("负概率", ""),
+                "主进球": rec.get("主进球", ""),
+                "客进球": rec.get("客进球", ""),
+                "胜赔付": rec.get("胜赔付", ""),
+                "平赔付": rec.get("平赔付", ""),
+                "负赔付": rec.get("负赔付", ""),
                 "轮次>10%": rec.get("轮次>10%", "待模拟"),
                 "记录时间": rec.get("记录时间", "")
             })
@@ -1242,14 +1242,14 @@ elif page == "分析记录库":
                 if selected_leagues:
                     df = df[df["赛事"].isin(selected_leagues)]
         with col_f2:
-            sort_col = st.selectbox("排序依据", options=["记录时间", "主胜概率", "平局概率", "客胜概率", "期望赔付(主胜)"])
+            sort_col = st.selectbox("排序依据", options=["记录时间", "胜概率", "平概率", "负概率", "胜赔付"])
             ascending = st.checkbox("升序", value=False)
-            if sort_col in ["主胜概率", "平局概率", "客胜概率"]:
+            if sort_col in ["胜概率", "平概率", "负概率"]:
                 df_sorted = df.copy()
                 df_sorted[sort_col + "_数值"] = df_sorted[sort_col].str.rstrip('%').astype(float)
                 df_sorted = df_sorted.sort_values(sort_col + "_数值", ascending=ascending)
                 df = df_sorted.drop(columns=[sort_col + "_数值"])
-            elif sort_col == "期望赔付(主胜)":
+            elif sort_col == "胜赔付":
                 df_sorted = df.copy()
                 df_sorted[sort_col + "_数值"] = df_sorted[sort_col].astype(float)
                 df_sorted = df_sorted.sort_values(sort_col + "_数值", ascending=ascending)
