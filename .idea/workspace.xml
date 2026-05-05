@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="6c16d297-5485-42de-b7b0-1d34f59f0b79" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/x-football.py" beforeDir="false" afterPath="$PROJECT_DIR$/x-football.py" afterDir="false" />
-    </list>
+    <list default="true" id="6c16d297-5485-42de-b7b0-1d34f59f0b79" name="更改" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -97,6 +95,7 @@
       <workItem from="1777867815430" duration="15000" />
       <workItem from="1777867945014" duration="19000" />
       <workItem from="1777868656274" duration="700000" />
+      <workItem from="1777944303413" duration="30000" />
     </task>
     <servers />
   </component>
