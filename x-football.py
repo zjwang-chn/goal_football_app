@@ -807,10 +807,6 @@ if st.sidebar.button("🔄 刷新数据源", use_container_width=True):
 st.sidebar.markdown("---")
 st.sidebar.caption("""
 **规则说明**  
-- 每队独立模拟，最多进5球  
-- 每次射门机会生成随机数(0~1)，≥概率则进球  
-- 连续进球直至失败或进满5球  
-- 比分组合统计后计算分布  
 """)
 
 # ================= 执行基础模拟 =================
@@ -837,7 +833,7 @@ if run_sim:
         update_or_add_core_record(match_id, core)
         # ---
 
-    st.success(f"✅ 模拟完成！耗时 {data['elapsed']:.3f} 秒，核心结果已添加到「分析记录库」。")
+    st.success(f"✅ 模拟完成！耗时 {data['elapsed']:.3f} 秒，核心结果已添加到【分析记录库】。")
 
 # ================= 页面内容 =================
 # 从 session state 获取模拟结果（可能为 None）
@@ -1158,7 +1154,7 @@ elif page == "轮次模拟":
         update_rounds_record(match_id, high_prob_rounds)
         # -------------------------------------------------
 
-        st.success(f"✅ 模拟完成！共模拟 {n_round_sims:,} 场，轮次数据已同步到分析记录库。")
+        st.success(f"✅ 模拟完成！共模拟 {n_round_sims:,} 场，轮次数据已同步到【分析记录库】。")
 
         st.markdown('<p class="sub-header">📊 比分分布</p>', unsafe_allow_html=True)
         score_counts = df_results.groupby(["home_goals", "away_goals"]).size().reset_index(name="次数")
