@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Tuple
 import random
 import math
 import datetime
-from datetime import timezone, timedelta
+from datetime import timezone, timedelta  # 新增
 import gc
 import io
 
@@ -655,18 +655,17 @@ if all(st.session_state[f"home_p_{i}"] == 0.0 for i in range(5)):
 if 'sim_data' not in st.session_state:
     st.session_state.sim_data = None
 
-# 新增：分析记录库（存储核心+总进球高概率记录）
+# 新增：分析记录库（存储核心+轮次合并记录）
 if 'analysis_records' not in st.session_state:
     st.session_state.analysis_records = []
 
-def update_or_add_core_record(match_id: str, core_data: dict, high_prob_totals: List[int] = None) -> None:
+def update_or_add_core_record(match_id: str, core_data: dict) -> None:
     """
     更新或添加核心模拟记录（基础模拟部分）
     core_data 应包含:
         - home_win_prob, draw_prob, away_win_prob (数值)
         - exp_home, exp_away (数值)
         - exp_ho, exp_do, exp_ao (数值)
-    high_prob_totals: 总进球概率>10%的进球数列表
     """
     # 获取比赛基本信息
     basic = loader.get_match_basic_info(match_id)
@@ -686,16 +685,6 @@ def update_or_add_core_record(match_id: str, core_data: dict, high_prob_totals: 
             existing_index = i
             break
 
-    # 处理高概率总进球字符串
-    if high_prob_totals is None:
-        # 保留原有值（如果有）
-        existing_totals = None
-        if existing_index is not None:
-            existing_totals = st.session_state.analysis_records[existing_index].get("轮次>10%", "待模拟")
-        total_str = existing_totals if existing_totals is not None else "待模拟"
-    else:
-        total_str = ", ".join(map(str, high_prob_totals)) if high_prob_totals else "无"
-
     new_record = {
         "match_id": match_id,
         "时间": formatted_gt,
@@ -710,14 +699,28 @@ def update_or_add_core_record(match_id: str, core_data: dict, high_prob_totals: 
         "胜赔付": f"{core_data['exp_ho']:.4f}",
         "平赔付": f"{core_data['exp_do']:.4f}",
         "负赔付": f"{core_data['exp_ao']:.4f}",
-        "轮次>10%": total_str,  # 此处存储总进球高概率进球数
+        "轮次>10%": "待模拟",
         "记录时间": get_beijing_time_str()
     }
 
     if existing_index is not None:
+        # 更新现有记录，但保留原有的轮次字段（如果不为待模拟）
+        old_record = st.session_state.analysis_records[existing_index]
+        old_record.update(new_record)
+        if old_record.get("轮次>10%") != "待模拟":
+            new_record["轮次>10%"] = old_record["轮次>10%"]
         st.session_state.analysis_records[existing_index] = new_record
     else:
         st.session_state.analysis_records.append(new_record)
+
+def update_rounds_record(match_id: str, high_prob_rounds: List[int]) -> None:
+    """更新指定比赛的轮次字段"""
+    round_str = ", ".join(map(str, high_prob_rounds)) if high_prob_rounds else "无"
+    for rec in st.session_state.analysis_records:
+        if rec.get("match_id") == match_id:
+            rec["轮次>10%"] = round_str
+            rec["记录时间"] = get_beijing_time_str()
+            break
 
 # ================= 顶部固定区域 =================
 with st.container():
@@ -745,7 +748,7 @@ with st.container():
     with col4:
         st.markdown(f"**✈️ 客队**<br>{basic.get('sa', '未提供')}", unsafe_allow_html=True)
 
-    # ---- 联赛 + 比赛ID 联动选择（并排放置）----
+    # ---- 联赛 + 比赛ID 联动选择 ----
     league_map = st.session_state.get('league_match_map', {})
     if not league_map:
         st.error("联赛数据缺失，请检查 odds_config.xml")
@@ -765,28 +768,24 @@ with st.container():
         current_league = first_league
         update_probs_from_match_id(current_mid)
 
-    # 两列并排
-    col_league, col_match = st.columns(2)
-    with col_league:
-        selected_league = st.selectbox(
-            "选择联赛",
-            options=list(league_map.keys()),
-            index=list(league_map.keys()).index(current_league),
-            key="league_selector"
-        )
+    selected_league = st.selectbox(
+        "选择联赛",
+        options=list(league_map.keys()),
+        index=list(league_map.keys()).index(current_league),
+        key="league_selector"
+    )
     match_ids_in_league = league_map[selected_league]
     if st.session_state.selected_match_id not in match_ids_in_league:
         st.session_state.selected_match_id = match_ids_in_league[0]
         update_probs_from_match_id(st.session_state.selected_match_id)
 
-    with col_match:
-        selected_match_id = st.selectbox(
-            "选择比赛",
-            options=match_ids_in_league,
-            format_func=lambda mid: f"{mid} - {loader.get_match_basic_info(mid).get('sh', '?')} vs {loader.get_match_basic_info(mid).get('sa', '?')}",
-            index=match_ids_in_league.index(st.session_state.selected_match_id),
-            key="match_id_selector_new"
-        )
+    selected_match_id = st.selectbox(
+        "选择比赛",
+        options=match_ids_in_league,
+        format_func=lambda mid: f"{mid} - {loader.get_match_basic_info(mid).get('sh', '?')} vs {loader.get_match_basic_info(mid).get('sa', '?')}",
+        index=match_ids_in_league.index(st.session_state.selected_match_id),
+        key="match_id_selector_new"
+    )
     if selected_match_id != st.session_state.selected_match_id:
         st.session_state.selected_match_id = selected_match_id
         update_probs_from_match_id(selected_match_id)
@@ -818,11 +817,7 @@ if run_sim:
         data = run_simulation(home_probs, away_probs, sim_times)
         st.session_state.sim_data = data
 
-        # 计算总进球概率 > 10% 的进球数
-        total_df = data['total_goals_df'].copy()
-        high_prob_totals = total_df[total_df['概率'] > 0.10]['总进球'].tolist()
-
-        # --- 核心数据记录到分析库（包含高概率总进球）---
+        # --- 核心数据记录到分析库 ---
         match_id = st.session_state.selected_match_id
         ho, do, ao = loader.get_windrawwin_odds(match_id)
         core = {
@@ -835,10 +830,10 @@ if run_sim:
             "exp_do": data['draw_prob'] * do,
             "exp_ao": data['away_win_prob'] * ao,
         }
-        update_or_add_core_record(match_id, core, high_prob_totals)
+        update_or_add_core_record(match_id, core)
         # ---
 
-    st.success(f"✅ 模拟完成！耗时 {data['elapsed']:.3f} 秒，核心结果及高概率总进球已添加到【分析记录库】。")
+    st.success(f"✅ 模拟完成！耗时 {data['elapsed']:.3f} 秒，核心结果已添加到【分析记录库】。")
 
 # ================= 页面内容 =================
 # 从 session state 获取模拟结果（可能为 None）
@@ -1045,22 +1040,7 @@ elif page == "总进球":
     total_df_display = pd.concat([total_df, total_row], ignore_index=True)
     display_df = total_df_display[['总进球','频次','百分比','大小']].copy()
     display_df['大小'] = display_df['大小'].apply(lambda x: f"{x:.4f}")
-
-    # 高亮显示百分比 > 10% 的行（排除总计行）
-    def highlight_percent(row):
-        if row['总进球'] == '总计':
-            return ['' for _ in row]
-        try:
-            # 百分比列格式如 "12.34%"
-            pct_val = float(row['百分比'].rstrip('%'))
-            if pct_val > 10.0:
-                return ['background-color: #d4edda' for _ in row]
-        except:
-            pass
-        return ['' for _ in row]
-
-    styled_df = display_df.style.apply(highlight_percent, axis=1)
-    st.dataframe(styled_df, use_container_width=True, hide_index=True, height=450)
+    st.dataframe(display_df, use_container_width=True, hide_index=True, height=450)
 
 elif page == "比分":
     st.markdown('<p class="main-header">📊 比分详情 & 净胜球</p>', unsafe_allow_html=True)
@@ -1167,8 +1147,14 @@ elif page == "轮次模拟":
             df_results = simulate_matches(home_no_goal, home_par, away_no_goal, away_par, n_round_sims, progress_bar=progress_bar)
         progress_bar.empty()
 
-        # 注意：此处不再更新分析记录库的轮次>10%字段（已由总进球替代）
-        st.success(f"✅ 模拟完成！共模拟 {n_round_sims:,} 场。")
+        # --- 计算高概率轮次并更新到分析记录库 ---
+        round_counts = df_results.groupby("rounds").size().reset_index(name="次数")
+        round_counts["概率"] = round_counts["次数"] / n_round_sims
+        high_prob_rounds = round_counts[round_counts["概率"] >= 0.1]["rounds"].tolist()
+        update_rounds_record(match_id, high_prob_rounds)
+        # -------------------------------------------------
+
+        st.success(f"✅ 模拟完成！共模拟 {n_round_sims:,} 场，轮次数据已同步到【分析记录库】。")
 
         st.markdown('<p class="sub-header">📊 比分分布</p>', unsafe_allow_html=True)
         score_counts = df_results.groupby(["home_goals", "away_goals"]).size().reset_index(name="次数")
@@ -1189,17 +1175,18 @@ elif page == "轮次模拟":
                 st.bar_chart(score_counts.set_index("比分")["概率"])
 
         st.markdown('<p class="sub-header">🔄 轮次数分布</p>', unsafe_allow_html=True)
+        # 重新计算round_counts（或者使用上面的）
         round_counts = df_results.groupby("rounds").size().reset_index(name="次数")
         round_counts["概率"] = round_counts["次数"] / n_round_sims
         round_counts["百分比"] = round_counts["概率"].apply(lambda x: f"{x:.4%}")
         col_left2, col_right2 = st.columns([1, 2])
         with col_left2:
-            def highlight_round(row):
+            def highlight_prob(row):
                 if row["概率"] >= 0.1:
                     return ["background-color: #d4edda" for _ in row]
                 else:
                     return ["" for _ in row]
-            styled_df = round_counts.style.apply(highlight_round, axis=1).format({"概率": "{:.4%}"})
+            styled_df = round_counts.style.apply(highlight_prob, axis=1).format({"概率": "{:.4%}"})
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
         with col_right2:
             if PLOTLY_AVAILABLE:
@@ -1219,7 +1206,7 @@ elif page == "分析记录库":
     st.markdown('<p class="main-header">📋 分析记录库</p>', unsafe_allow_html=True)
 
     if not st.session_state.analysis_records:
-        st.info("暂无记录。请在「首页」运行百万次模拟，核心数据和总进球高概率进球数将自动记录。")
+        st.info("暂无记录。请在「首页」运行百万次模拟（核心数据）并在「轮次模拟」页面运行模拟（轮次数据），结果将自动合并到同一条记录。")
     else:
         # 提取显示用的字段（不包含 match_id）
         display_records = []
@@ -1237,7 +1224,7 @@ elif page == "分析记录库":
                 "胜赔付": rec.get("胜赔付", ""),
                 "平赔付": rec.get("平赔付", ""),
                 "负赔付": rec.get("负赔付", ""),
-                "高概率总进球(>10%)": rec.get("轮次>10%", "待模拟"),  # 列名更清晰
+                "轮次>10%": rec.get("轮次>10%", "待模拟"),
                 "记录时间": rec.get("记录时间", "")
             })
         df = pd.DataFrame(display_records)
@@ -1270,10 +1257,10 @@ elif page == "分析记录库":
                 st.session_state.analysis_records = []
                 st.rerun()
 
-        # 额外选项：只显示有高概率总进球数据的记录（非“待模拟”且非“无”）
-        show_only_complete = st.checkbox("仅显示已有高概率总进球数据的记录", value=False)
+        # 额外选项：只显示完整记录（轮次不是“待模拟”）
+        show_only_complete = st.checkbox("仅显示完整记录（已有轮次数据）", value=False)
         if show_only_complete:
-            df = df[~df["高概率总进球(>10%)"].isin(["待模拟", "无"])]
+            df = df[df["轮次>10%"] != "待模拟"]
 
         st.dataframe(df, use_container_width=True, hide_index=True)
 
