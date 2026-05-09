@@ -356,7 +356,7 @@ def main():
 
     now_beijing = get_beijing_time()
     print(f"当前北京时间: {now_beijing.strftime('%Y-%m-%d %H:%M:%S')}")
-    print("开始处理，遇到比赛时间 > 当前时间+24小时 则停止\n")
+    print("开始处理，遇到比赛时间 > 当前时间+4小时 则停止\n")
 
     records = []
     processed_count = 0
@@ -377,12 +377,12 @@ def main():
         # 计算时间差
         delta = match_time - now_beijing
         # 跳过过去的比赛（delta.total_seconds() < 0）
-        if delta.total_seconds() < 0:
+        if delta.total_seconds() < -2 * 3600:
             print(f"⏪ 跳过过去比赛 {match_id}: {match_time}")
             continue
         # 如果超过 24 小时，由于比赛按时间顺序排列，可以停止
-        if delta.total_seconds() > 24 * 3600:
-            print(f"⏹️ 停止于 {match_id} (比赛时间超出未来24小时)")
+        if delta.total_seconds() > 4 * 3600:
+            print(f"⏹️ 停止于 {match_id} (比赛时间超出未来4小时)")
             stop_reason = f"遇到比赛时间超出未来24小时: {match_id}"
             break
 
