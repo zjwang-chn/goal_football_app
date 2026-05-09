@@ -35,6 +35,22 @@ if errorlevel 2 (
     exit /b 0
 )
 
+:: ========== Git 自动拉取（防交互） ==========
+echo [额外步骤] 开始 Git 提交与推送...
+
+:: 设置行尾符自动转换
+git config core.autocrlf true
+
+cd /d "%XML_PATH%"
+
+:: 先拉取远程最新变更（使用 rebase 避免多余的合并提交）
+echo 正在拉取远程变更...
+git pull --rebase origin main 2>nul
+if errorlevel 1 (
+    echo 拉取失败，尝试普通 pull
+    git pull origin main --no-rebase
+)
+
 :: 步骤2：关闭Excel
 echo [2/7] 关闭Excel...
 call "%R8_PATH%\close_excel.bat" 2>nul
