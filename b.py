@@ -383,7 +383,7 @@ def main():
         # 如果超过 24 小时，由于比赛按时间顺序排列，可以停止
         if delta.total_seconds() > 4 * 3600:
             print(f"⏹️ 停止于 {match_id} (比赛时间超出未来4小时)")
-            stop_reason = f"遇到比赛时间超出未来24小时: {match_id}"
+            stop_reason = f"遇到比赛时间超出未来4小时: {match_id}"
             break
 
         # 处理该比赛

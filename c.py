@@ -82,6 +82,11 @@ def main():
     # ========== 筛选与排序侧边栏 ==========
     st.sidebar.header("🔍 数据筛选")
 
+    # 强制刷新按钮
+    if st.sidebar.button("🔄 强制刷新数据（从文件重新加载）"):
+        load_data.clear()   # 清除缓存
+        st.rerun()          # 重新运行脚本，立即生效
+
     # 联赛筛选
     if "赛事" in df.columns:
         leagues = sorted(df["赛事"].unique())
