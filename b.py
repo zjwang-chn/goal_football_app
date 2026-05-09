@@ -8,7 +8,7 @@ b.py - 足球比分模拟分析脚本（独立计算模块）
 3. 使用模拟算法计算胜平负概率、期望进球、期望赔付、总进球高概率区间
 4. 输出结果到 data/analysis_output.json（可被 c.py 读取展示）
 """
-
+import os   # 添加这一行
 import os
 import json
 import os
@@ -303,38 +303,22 @@ def run_simulation(home_p, away_p, n_sims):
 
 # ================= 主控制逻辑 =================
 def load_xml_files() -> Optional[FootballDataLoader]:
-    """优先从本地目录加载XML文件，支持两种结构：
-       1. 当前目录下的 xml/ 子文件夹（本地开发）
-       2. 当前目录本身（GitHub Actions）
-       如果都失败，则从 GitHub 下载。
-    """
-    # 定义可能的相对路径列表（按优先级）
-    search_paths = [
-        "xml",  # 本地：R.9/xml/
-        "."  # GitHub Actions：仓库根目录
-    ]
-
-    for path in search_paths:
-        xml_contents = {}
-        all_found = True
-        for fname in XML_FILES:
-            filepath = os.path.join(path, fname)
-            if os.path.exists(filepath):
-                try:
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        xml_contents[fname] = f.read()
-                except Exception as e:
-                    print(f"⚠️ 读取文件 {filepath} 出错: {e}")
-                    all_found = False
-                    break
-            else:
-                all_found = False
-                break
-        if all_found and len(xml_contents) == len(XML_FILES):
-            loader = FootballDataLoader()
-            loader.load_from_dict(xml_contents)
-            print(f"✅ 使用本地 XML 文件（路径: {path}）")
-            return loader
+    """从当前目录读取 XML 文件，若失败则从 GitHub 下载"""
+    # 尝试从当前目录加载本地 XML 文件
+    xml_contents = {}
+    for fname in XML_FILES:
+        if os.path.exists(fname):
+            with open(fname, "r", encoding="utf-8") as f:
+                xml_contents[fname] = f.read()
+        else:
+            print(f"⚠️ 本地文件 {fname} 不存在")
+            break
+    else:
+        # 所有文件都存在
+        loader = FootballDataLoader()
+        loader.load_from_dict(xml_contents)
+        print("✅ 使用本地 XML 文件（当前目录）")
+        return loader
 
     # 回退到网络下载
     print("⬇️ 本地 XML 文件未找到，从 GitHub 下载...")

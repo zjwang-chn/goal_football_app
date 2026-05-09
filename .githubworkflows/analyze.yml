@@ -1,0 +1,40 @@
+name: Football Analysis
+
+on:
+  push:
+    paths:
+      - '*.xml'       # 任何 XML 文件更新时触发
+      - 'b.py'        # b.py 更新时也触发
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  run-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 允许推送生成的 JSON 文件
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests numpy pandas
+
+      - name: List files (debug)
+        run: ls -la   # 可选，检查 XML 文件是否存在
+
+      - name: Run analysis script
+        run: python b.py
+
+      - name: Commit and push generated JSON
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/analysis_output.json
+          git diff --staged --quiet || git commit -m "Auto update analysis result [skip ci]"
+          git push
