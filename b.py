@@ -8,8 +8,7 @@ b.py - 足球比分模拟分析脚本（独立计算模块）
 3. 使用模拟算法计算胜平负概率、期望进球、期望赔付、总进球高概率区间
 4. 输出结果到 data/analysis_output.json（可被 c.py 读取展示）
 """
-import os   # 添加这一行
-import os
+
 import json
 import os
 import time
@@ -451,11 +450,24 @@ def main():
         "records": records
     }
 
+    # JSON 输出
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ JSON 结果已保存至: {OUTPUT_FILE}")
+
+    # CSV 输出
+    if records:
+        csv_file = os.path.join(OUTPUT_DIR, "analysis_output.csv")
+        df = pd.DataFrame(records)
+        # 可选：指定列顺序，让表格更整洁
+        column_order = ["match_id", "时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率", 
+                        "主进球", "客进球", "胜赔付", "平赔付", "负赔付", "轮次>10%", "记录时间"]
+        df[column_order].to_csv(csv_file, index=False, encoding="utf-8-sig")
+        print(f"✅ CSV 结果已保存至: {csv_file}")
+    else:
+        print("⚠️ 无比赛记录，未生成 CSV 文件")
 
     print(f"\n✅ 分析完成！共处理 {processed_count} 场比赛")
-    print(f"结果已保存至: {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     main()
