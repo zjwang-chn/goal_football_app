@@ -31,10 +31,10 @@ jobs:
       - name: Run analysis script
         run: python b.py
 
-      - name: Commit and push generated JSON
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/analysis_output.json
-          git diff --staged --quiet || git commit -m "Auto update analysis result [skip ci]"
-          git push
+- name: Commit and push generated files
+  run: |
+    git config user.name "github-actions[bot]"
+    git config user.email "github-actions[bot]@users.noreply.github.com"
+    git add data/analysis_output.json data/analysis_output.csv
+    git diff --staged --quiet || git commit -m "Auto update analysis result [skip ci]"
+    git push
