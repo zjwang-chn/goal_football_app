@@ -450,20 +450,38 @@ def main():
         "records": records
     }
 
-    # JSON 输出
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(output_data, f, ensure_ascii=False, indent=2)
-    print(f"✅ JSON 结果已保存至: {OUTPUT_FILE}")
+    # 生成时间戳
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # CSV 输出
+    # 带时间戳的文件名
+    json_file_ts = os.path.join(OUTPUT_DIR, f"analysis_output_{timestamp}.json")
+    csv_file_ts = os.path.join(OUTPUT_DIR, f"analysis_output_{timestamp}.csv")
+
+    # 固定名称的 latest 文件（供 c.py 读取）
+    json_file_latest = os.path.join(OUTPUT_DIR, "analysis_output_latest.json")
+    csv_file_latest = os.path.join(OUTPUT_DIR, "analysis_output_latest.csv")
+
+    # 1. 写入带时间戳的 JSON
+    with open(json_file_ts, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ JSON 历史版本: {json_file_ts}")
+
+    # 2. 写入 latest JSON（覆盖）
+    with open(json_file_latest, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ JSON 最新版本: {json_file_latest}")
+
+    # 3. 写入带时间戳的 CSV
     if records:
-        csv_file = os.path.join(OUTPUT_DIR, "analysis_output.csv")
         df = pd.DataFrame(records)
-        # 可选：指定列顺序，让表格更整洁
-        column_order = ["match_id", "时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率", 
+        column_order = ["match_id", "时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率",
                         "主进球", "客进球", "胜赔付", "平赔付", "负赔付", "轮次>10%", "记录时间"]
-        df[column_order].to_csv(csv_file, index=False, encoding="utf-8-sig")
-        print(f"✅ CSV 结果已保存至: {csv_file}")
+        df[column_order].to_csv(csv_file_ts, index=False, encoding="utf-8-sig")
+        print(f"✅ CSV 历史版本: {csv_file_ts}")
+
+        # 4. 写入 latest CSV（覆盖）
+        df[column_order].to_csv(csv_file_latest, index=False, encoding="utf-8-sig")
+        print(f"✅ CSV 最新版本: {csv_file_latest}")
     else:
         print("⚠️ 无比赛记录，未生成 CSV 文件")
 

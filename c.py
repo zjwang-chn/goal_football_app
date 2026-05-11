@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # 数据文件路径（与 b.py 输出位置保持一致）
-DATA_FILE = "data/analysis_output.json"
+DATA_FILE = "data/analysis_output_latest.json"
 
 # 页面样式
 st.markdown("""
