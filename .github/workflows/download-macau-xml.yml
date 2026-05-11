@@ -9,16 +9,11 @@ jobs:
   download-and-update:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # 必须开启，才能清理历史
 
-      # ====================== 下载XML ======================
       - name: 下载所有 XML 到根目录
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
@@ -32,25 +27,13 @@ jobs:
           curl -L -A "$UA" -o numberofgoals.xml "https://www.macauslot.com/content/data/soccer/xml/odds/numberofgoals.xml"
           curl -L -A "$UA" -o correctscore.xml "https://www.macauslot.com/content/data/soccer/xml/odds/correctscore.xml"
 
-      # ====================== 提交更新 ======================
-      - name: 提交并推送更新
+      - name: 显示文件
+        run: ls -la *.xml
+
+      - name: 提交更新到仓库
         uses: EndBug/add-and-commit@v9
         with:
           author_name: Auto Bot
           author_email: bot@example.com
           message: 自动更新XML数据
           add: "*.xml"
-
-      # ====================== 自动清理Git历史（防仓库膨胀） ======================
-      # 每月1号自动清理，只保留最近30天的记录，不影响当前文件
-      - name: 清理旧历史，保持仓库小巧
-        if: github.event.schedule == '0 1,4,7,10,13,16,19,22 * * *' && github.run_attempt == 1
-        run: |
-          git config user.name "Auto Bot"
-          git config user.email "bot@example.com"
-          git checkout --orphan temp_branch
-          git add -A
-          git commit -m "初始化清理：保留最新文件，删除所有历史记录"
-          git branch -D main
-          git branch -m main
-          git push -f origin main
