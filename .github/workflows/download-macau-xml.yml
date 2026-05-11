@@ -1,0 +1,54 @@
+name: 自动下载澳门彩票 XML 文件
+
+# 触发方式：手动 + 每3小时自动运行
+on:
+  workflow_dispatch:    # 手动触发
+  schedule:
+    - cron: '0 */3 * * *'  # 每3小时执行一次（UTC时间）
+
+jobs:
+  download-and-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ====================== 下载 8 个 XML 文件 ======================
+      - name: 下载所有 XML 到仓库根目录
+        run: |
+          # 模拟浏览器头（必须，否则澳门彩票会拒绝下载）
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+
+          # 1
+          curl -L -A "$UA" -o windrawwinfirsthalf.xml "https://www.macauslot.com/content/data/soccer/xml/odds/windrawwinfirsthalf.xml"
+          # 2
+          curl -L -A "$UA" -o odds_config.xml "https://www.macauslot.com/content/data/soccer/xml/odds/odds_config.xml"
+          # 3
+          curl -L -A "$UA" -o windrawwin.xml "https://www.macauslot.com/content/data/soccer/xml/odds/windrawwin.xml"
+          # 4
+          curl -L -A "$UA" -o halffull.xml "https://www.macauslot.com/content/data/soccer/xml/odds/halffull.xml"
+          # 5
+          curl -L -A "$UA" -o winodds.xml "https://www.macauslot.com/content/data/soccer/xml/odds/winodds.xml"
+          # 6
+          curl -L -A "$UA" -o overunder.xml "https://www.macauslot.com/content/data/soccer/xml/odds/overunder.xml"
+          # 7
+          curl -L -A "$UA" -o numberofgoals.xml "https://www.macauslot.com/content/data/soccer/xml/odds/numberofgoals.xml"
+          # 8
+          curl -L -A "$UA" -o correctscore.xml "https://www.macauslot.com/content/data/soccer/xml/odds/correctscore.xml"
+
+      # ====================== 查看是否下载成功 ======================
+      - name: 显示下载的文件
+        run: ls -la *.xml
+
+      # ====================== 自动提交到仓库 ======================
+      - name: 提交并推送更新
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: Auto Download Bot
+          author_email: bot@example.com
+          message: 自动更新澳门彩票 XML 数据
+          add: "*.xml"
