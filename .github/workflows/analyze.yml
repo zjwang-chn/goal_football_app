@@ -3,9 +3,13 @@ name: Football Analysis
 on:
   push:
     paths:
-      - '*.xml'       # 任何 XML 文件更新时触发
-      - 'b.py'        # b.py 更新时也触发
-  workflow_dispatch:  # 允许手动触发
+      - '*.xml'
+      - 'b.py'
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["自动下载Macau slot XML 文件"]   # 必须是下载工作流的 name 完全一致
+    types:
+      - completed
 
 jobs:
   run-analysis:
