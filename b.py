@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 # ================= 常量定义 =================
 MAX_GOALS = 5                     # 最大进球数（赔率表定义）
-SIM_N = 1_000_000                 # 每次模拟次数
+SIM_N = 500_000                 # 每次模拟次数
 XML_BASE_URL = "https://raw.githubusercontent.com/52483588/xml/refs/heads/main/"
 OUTPUT_DIR = "data"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "analysis_output.json")
@@ -376,11 +376,11 @@ def main():
         # 计算时间差
         delta = match_time - now_beijing
         # 跳过过去的比赛（delta.total_seconds() < 0）
-        if delta.total_seconds() < -2 * 3600:
+        if delta.total_seconds() < -1.5 * 3600:
             print(f"⏪ 跳过过去比赛 {match_id}: {match_time}")
             continue
         # 如果超过 24 小时，由于比赛按时间顺序排列，可以停止
-        if delta.total_seconds() > 4 * 3600:
+        if delta.total_seconds() > 2 * 3600:
             print(f"⏹️ 停止于 {match_id} (比赛时间超出未来4小时)")
             stop_reason = f"遇到比赛时间超出未来4小时: {match_id}"
             break
