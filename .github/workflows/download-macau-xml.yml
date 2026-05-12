@@ -73,4 +73,4 @@ jobs:
           add: |
             HisData/
             *.xml
-          token: ${{ secrets.PAT_TOKEN }}
+          github_token: ${{ secrets.PAT_TOKEN }}
