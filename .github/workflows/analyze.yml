@@ -1,17 +1,21 @@
 name: Football Analysis
 
 on:
+  push:
+    paths:
+      - '*.xml'
+      - 'b.py'
+  workflow_dispatch:
   workflow_run:
-    #workflows: ["自动下载Macau slot XML 文件"]   # 必须与下载工作流的 name 完全一致
+    workflows: ["自动下载Macau slot XML 文件"]   # 必须是下载工作流的 name 完全一致
     types:
       - completed
-  workflow_dispatch:   # 允许手动触发
 
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # 允许推送生成的 JSON/CSV 文件
+      contents: write  # 允许推送生成的 JSON 文件
 
     steps:
       - name: Checkout repository
@@ -26,7 +30,7 @@ jobs:
         run: pip install requests numpy pandas
 
       - name: List files (debug)
-        run: ls -la   # 检查 XML 文件是否存在
+        run: ls -la   # 可选，检查 XML 文件是否存在
 
       - name: Run analysis script
         run: python b.py
