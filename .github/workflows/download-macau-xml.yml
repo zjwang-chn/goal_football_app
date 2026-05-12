@@ -29,25 +29,19 @@ jobs:
       - name: 创建 HisData 目录
         run: mkdir -p HisData
 
-      # 移动现有 XML 到 HisData/时间戳/ 子目录
+      # 1. 归档旧XML（使用 find 确保全部移动）
       - name: 归档旧XML文件
         run: |
           ARCHIVE_DIR="HisData/${{ env.TIMESTAMP }}"
           mkdir -p "$ARCHIVE_DIR"
-          shopt -s nullglob
-          xml_files=(*.xml)
-          if [ ${#xml_files[@]} -gt 0 ]; then
-            mv -f *.xml "$ARCHIVE_DIR/"
-            echo "✅ 已移动 ${#xml_files[@]} 个旧XML到 $ARCHIVE_DIR"
-          else
-            echo "✅ 没有旧XML文件需要归档"
-          fi
+          find . -maxdepth 1 -name "*.xml" -exec mv -f {} "$ARCHIVE_DIR/" \;
+          count=$(find "$ARCHIVE_DIR" -name "*.xml" | wc -l)
+          echo "✅ 已归档 $count 个XML文件到 $ARCHIVE_DIR"
 
-      # 下载最新8个XML到根目录
+      # 2. 下载最新8个XML
       - name: 下载最新XML到根目录
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-          
           curl -L -A "$UA" -o windrawwinfirsthalf.xml "https://www.macauslot.com/content/data/soccer/xml/odds/windrawwinfirsthalf.xml"
           curl -L -A "$UA" -o odds_config.xml "https://www.macauslot.com/content/data/soccer/xml/odds/odds_config.xml"
           curl -L -A "$UA" -o windrawwin.xml "https://www.macauslot.com/content/data/soccer/xml/odds/windrawwin.xml"
@@ -56,6 +50,18 @@ jobs:
           curl -L -A "$UA" -o overunder.xml "https://www.macauslot.com/content/data/soccer/xml/odds/overunder.xml"
           curl -L -A "$UA" -o numberofgoals.xml "https://www.macauslot.com/content/data/soccer/xml/odds/numberofgoals.xml"
           curl -L -A "$UA" -o correctscore.xml "https://www.macauslot.com/content/data/soccer/xml/odds/correctscore.xml"
+
+      # 3. 验证所有8个文件都存在且非空
+      - name: 验证下载完整性
+        run: |
+          ALL_FILES=("windrawwinfirsthalf.xml" "odds_config.xml" "windrawwin.xml" "halffull.xml" "winodds.xml" "overunder.xml" "numberofgoals.xml" "correctscore.xml")
+          for f in "${ALL_FILES[@]}"; do
+            if [ ! -s "$f" ]; then
+              echo "❌ 文件 $f 不存在或为空，下载失败"
+              exit 1
+            fi
+          done
+          echo "✅ 所有8个XML文件下载成功"
 
       # 提交更新（使用 PAT 令牌，确保能触发后续分析工作流）
       - name: 提交更新
