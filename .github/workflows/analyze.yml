@@ -40,4 +40,4 @@ jobs:
           author_email: github-actions[bot]@users.noreply.github.com
           message: "Auto update analysis result [skip ci]"
           add: "data/"
-          token: ${{ secrets.PAT_TOKEN }}
+          github_token: ${{ secrets.PAT_TOKEN }}
