@@ -52,3 +52,16 @@ jobs:
             HisData/
             *.xml
             
+      # 下载最新8个XML到根目录
+      - name: 下载最新XML到根目录
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+          
+          curl -L -A "$UA" -o windrawwinfirsthalf.xml "https://www.macauslot.com/content/data/soccer/xml/odds/windrawwinfirsthalf.xml"
+          curl -L -A "$UA" -o odds_config.xml "https://www.macauslot.com/content/data/soccer/xml/odds/odds_config.xml"
+          curl -L -A "$UA" -o windrawwin.xml "https://www.macauslot.com/content/data/soccer/xml/odds/windrawwin.xml"
+          curl -L -A "$UA" -o halffull.xml "https://www.macauslot.com/content/data/soccer/xml/odds/halffull.xml"
+          curl -L -A "$UA" -o winodds.xml "https://www.macauslot.com/content/data/soccer/xml/odds/winodds.xml"
+          curl -L -A "$UA" -o overunder.xml "https://www.macauslot.com/content/data/soccer/xml/odds/overunder.xml"
+          curl -L -A "$UA" -o numberofgoals.xml "https://www.macauslot.com/content/data/soccer/xml/odds/numberofgoals.xml"
+          curl -L -A "$UA" -o correctscore.xml "https://www.macauslot.com/content/data/soccer/xml/odds/correctscore.xml"
