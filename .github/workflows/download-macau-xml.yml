@@ -65,3 +65,14 @@ jobs:
           curl -L -A "$UA" -o overunder.xml "https://www.macauslot.com/content/data/soccer/xml/odds/overunder.xml"
           curl -L -A "$UA" -o numberofgoals.xml "https://www.macauslot.com/content/data/soccer/xml/odds/numberofgoals.xml"
           curl -L -A "$UA" -o correctscore.xml "https://www.macauslot.com/content/data/soccer/xml/odds/correctscore.xml"
+
+      # 提交更新（使用默认 GITHUB_TOKEN，不会触发新的工作流；但分析工作流会通过 workflow_run 触发）
+      - name: 提交更新
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: Auto Bot
+          author_email: bot@example.com
+          message: "归档 ${{ env.TIMESTAMP }} 并更新最新XML"
+          add: |
+            HisData/
+            *.xml
