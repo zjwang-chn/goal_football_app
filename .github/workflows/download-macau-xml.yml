@@ -3,38 +3,45 @@ name: 自动下载Macau slot XML 文件
 on:
   workflow_dispatch:  # 手动触发
   schedule:
-    - cron: '0 1,4,7,10,13,15,17,19,21,23 * * *'  # 北京时间 0/3/6/9/12/14/16/18/20/22点
+    - cron: '0 1,4,7,10,13,15,17,19,21,23 * * *'  # 北京时间整点
 
 jobs:
   download-and-archive:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write  # 需要写入权限
 
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
 
-      # 1. 设置北京时间 + 生成归档文件夹名
+      # 设置北京时间并生成时间戳文件夹名
       - name: 设置北京时间
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
-          ARCHIVE_DIR=$(date +%Y%m%d_%H%M%S)
-          echo "ARCHIVE_DIR=$ARCHIVE_DIR" >> $GITHUB_ENV
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
 
-      # 2. 创建归档文件夹 → 移动旧XML → 删除根目录旧文件（绝对严谨顺序）
-      - name: 归档旧文件
+      # 创建 HisData 目录（如果不存在）
+      - name: 创建 HisData 目录
+        run: mkdir -p HisData
+
+      # 移动现有 XML 到 HisData/时间戳/ 子目录
+      - name: 归档旧XML文件
         run: |
-          mkdir -p ${{ env.ARCHIVE_DIR }}
+          ARCHIVE_DIR="HisData/${{ env.TIMESTAMP }}"
+          mkdir -p "$ARCHIVE_DIR"
           shopt -s nullglob
           xml_files=(*.xml)
           if [ ${#xml_files[@]} -gt 0 ]; then
-            mv -f *.xml ${{ env.ARCHIVE_DIR }}/
-            echo "✅ 旧XML已归档到 $ARCHIVE_DIR"
+            mv -f *.xml "$ARCHIVE_DIR/"
+            echo "✅ 已移动 ${#xml_files[@]} 个旧XML到 $ARCHIVE_DIR"
           else
-            echo "✅ 首次运行，无旧文件"
+            echo "✅ 没有旧XML文件需要归档"
           fi
 
-      # 3. 下载最新8个XML（此时根目录一定是空的！）
+      # 下载最新8个XML到根目录
       - name: 下载最新XML到根目录
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
@@ -48,13 +55,13 @@ jobs:
           curl -L -A "$UA" -o numberofgoals.xml "https://www.macauslot.com/content/data/soccer/xml/odds/numberofgoals.xml"
           curl -L -A "$UA" -o correctscore.xml "https://www.macauslot.com/content/data/soccer/xml/odds/correctscore.xml"
 
-      # 4. 只提交：归档文件夹 + 根目录8个最新XML（绝对干净）
+      # 提交更新（使用默认 GITHUB_TOKEN，不会触发新的工作流；但分析工作流会通过 workflow_run 触发）
       - name: 提交更新
         uses: EndBug/add-and-commit@v9
         with:
           author_name: Auto Bot
           author_email: bot@example.com
-          message: "归档 ${{ env.ARCHIVE_DIR }} + 更新最新XML"
+          message: "归档 ${{ env.TIMESTAMP }} 并更新最新XML"
           add: |
-            ${{ env.ARCHIVE_DIR }}/*
+            HisData/
             *.xml
