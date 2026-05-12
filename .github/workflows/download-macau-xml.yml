@@ -1,20 +1,44 @@
 name: 自动下载Macau slot XML 文件
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发
   schedule:
-    - cron: '0 1,4,7,10,13,16,19,22 * * *'
+    - cron: '0 1,4,7,10,13,15,17,19,21,23 * * *'  # 北京时间 0/3/6/9/12/14/16/18/20/22点
 
 jobs:
-  download-and-update:
+  download-and-archive:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - name: 下载所有 XML 到根目录
+      # 第一步：生成北京时间时间戳
+      - name: 设置北京时间 & 创建归档文件夹
+        run: |
+          # 设置时区为 东八区（北京时间）
+          sudo timedatectl set-timezone Asia/Shanghai
+          # 创建时间戳文件夹：20260512_082631
+          ARCHIVE_DIR=$(date +%Y%m%d_%H%M%S)
+          echo "ARCHIVE_DIR=$ARCHIVE_DIR" >> $GITHUB_ENV
+          echo "归档目录：$ARCHIVE_DIR"
+
+      # 第二步：如果根目录有旧XML，先移动到时间戳文件夹归档
+      - name: 归档旧 XML 文件
+        run: |
+          mkdir -p ${{ env.ARCHIVE_DIR }}
+          if ls *.xml 1> /dev/null 2>&1; then
+            mv -f *.xml ${{ env.ARCHIVE_DIR }}/
+            echo "已将旧XML移入归档文件夹"
+          else
+            echo "首次运行，无旧文件需要归档"
+          fi
+
+      # 第三步：下载最新 8 个 XML 到仓库根目录
+      - name: 下载最新 XML 文件
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
           
@@ -27,13 +51,15 @@ jobs:
           curl -L -A "$UA" -o numberofgoals.xml "https://www.macauslot.com/content/data/soccer/xml/odds/numberofgoals.xml"
           curl -L -A "$UA" -o correctscore.xml "https://www.macauslot.com/content/data/soccer/xml/odds/correctscore.xml"
 
-      - name: 显示文件
-        run: ls -la *.xml
+      # 查看文件结构
+      - name: 显示当前文件结构
+        run: ls -la
 
-      - name: 提交更新到仓库
+      # 第四步：提交更新（归档文件夹 + 最新XML）
+      - name: 提交并推送到仓库
         uses: EndBug/add-and-commit@v9
         with:
           author_name: Auto Bot
           author_email: bot@example.com
-          message: 自动更新XML数据
-          add: "*.xml"
+          message: "自动更新XML | 归档: ${{ env.ARCHIVE_DIR }}"
+          add: "."
