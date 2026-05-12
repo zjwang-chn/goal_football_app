@@ -41,4 +41,14 @@ jobs:
             echo "✅ 没有旧XML文件需要归档"
           fi
 
-
+      # 提交更新（使用默认 GITHUB_TOKEN，不会触发新的工作流；但分析工作流会通过 workflow_run 触发）
+      - name: 提交更新
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: Auto Bot
+          author_email: bot@example.com
+          message: "归档 ${{ env.TIMESTAMP }} 并更新最新XML"
+          add: |
+            HisData/
+            *.xml
+            
