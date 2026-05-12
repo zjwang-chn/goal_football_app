@@ -2,7 +2,7 @@ name: Football Analysis
 
 on:
   workflow_run:
-    workflows: ["自动下载Macau slot XML 文件"]   # 必须与下载工作流的 name 完全一致
+    #workflows: ["自动下载Macau slot XML 文件"]   # 必须与下载工作流的 name 完全一致
     types:
       - completed
   workflow_dispatch:   # 允许手动触发
