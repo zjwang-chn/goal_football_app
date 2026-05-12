@@ -16,7 +16,7 @@ jobs:
       - name: 检出仓库
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_TOKEN }}
+          github_token: ${{ secrets.PAT_TOKEN }}
 
       # 设置北京时间并生成时间戳文件夹名
       - name: 设置北京时间
