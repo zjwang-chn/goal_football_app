@@ -1,4 +1,4 @@
-name: 自动下载Macau slot XML 文件
+name: 下载Macau slot XML 文件
 
 on:
   workflow_dispatch:
