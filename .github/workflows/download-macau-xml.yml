@@ -2,7 +2,10 @@ name: 自动下载Macau slot XML 文件
 
 on:
   workflow_dispatch:
-  
+  # 如果需要定时触发，可在此添加 schedule，例如：
+  # schedule:
+  #   - cron: '0 1,4,6,8,10,12,14,16,19,22 * * *'
+
 jobs:
   download-and-archive:
     runs-on: ubuntu-latest
@@ -65,8 +68,8 @@ jobs:
           cp *.xml "$ARCHIVE_DIR/"
           echo "✅ 已将根目录XML复制到 $ARCHIVE_DIR"
 
-      # 提交更新：包括根目录新XML 和 HisData下的新副本
-      - name: 提交更新
+      # 提交下载更新：包括根目录新XML 和 HisData下的新副本
+      - name: 提交下载更新
         run: |
           git config user.name "Auto Bot"
           git config user.email "bot@example.com"
@@ -74,3 +77,27 @@ jobs:
           git pull --rebase --autostash origin main || true
           git commit -m "归档 ${{ env.TIMESTAMP }} 并更新最新XML" || echo "No changes"
           git push
+
+      # ========== 以下为分析工作流步骤 ==========
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests numpy pandas
+
+      - name: List files (debug)
+        run: ls -la
+
+      - name: Run analysis script
+        run: python b.py
+
+      - name: Commit and push generated files
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: github-actions[bot]
+          author_email: github-actions[bot]@users.noreply.github.com
+          message: "Auto update analysis result [skip ci]"
+          add: "data/"
+          github_token: ${{ secrets.PAT_TOKEN }}
