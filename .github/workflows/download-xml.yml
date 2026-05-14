@@ -1,2 +1,77 @@
-.jobs:
+name: 自动下载Macau slot XML 文件
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  download-and-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      # 设置北京时间并生成时间戳文件夹名
+      - name: 设置北京时间
+        run: |
+          sudo timedatectl set-timezone Asia/Shanghai
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+
+      # 创建 HisData 目录（如果不存在）
+      - name: 创建 HisData 目录
+        run: mkdir -p HisData
+
+      # 删除根目录下所有现有的 XML 文件（确保干净环境）
+      - name: 删除根目录旧XML文件
+        run: find . -maxdepth 1 -name "*.xml" -type f -delete
+
+      # 下载最新8个XML到根目录
+      - name: 下载最新XML到根目录
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+          
+          curl -L -A "$UA" -o windrawwinfirsthalf.xml "https://www.macauslot.com/content/data/soccer/xml/odds/windrawwinfirsthalf.xml"
+          curl -L -A "$UA" -o odds_config.xml "https://www.macauslot.com/content/data/soccer/xml/odds/odds_config.xml"
+          curl -L -A "$UA" -o windrawwin.xml "https://www.macauslot.com/content/data/soccer/xml/odds/windrawwin.xml"
+          curl -L -A "$UA" -o halffull.xml "https://www.macauslot.com/content/data/soccer/xml/odds/halffull.xml"
+          curl -L -A "$UA" -o winodds.xml "https://www.macauslot.com/content/data/soccer/xml/odds/winodds.xml"
+          curl -L -A "$UA" -o overunder.xml "https://www.macauslot.com/content/data/soccer/xml/odds/overunder.xml"
+          curl -L -A "$UA" -o numberofgoals.xml "https://www.macauslot.com/content/data/soccer/xml/odds/numberofgoals.xml"
+          curl -L -A "$UA" -o correctscore.xml "https://www.macauslot.com/content/data/soccer/xml/odds/correctscore.xml"
+
+      # 验证下载完整性（所有文件必须存在且非空）
+      - name: 验证下载完整性
+        run: |
+          ALL_FILES=("windrawwinfirsthalf.xml" "odds_config.xml" "windrawwin.xml" "halffull.xml" "winodds.xml" "overunder.xml" "numberofgoals.xml" "correctscore.xml")
+          for f in "${ALL_FILES[@]}"; do
+            if [ ! -s "$f" ]; then
+              echo "❌ 文件 $f 不存在或为空，下载失败"
+              exit 1
+            fi
+          done
+          echo "✅ 所有8个XML文件下载成功"
+
+      # 复制根目录的XML文件到 HisData/时间戳/ 目录（保留历史副本）
+      - name: 复制XML到HisData时间戳文件夹
+        run: |
+          ARCHIVE_DIR="HisData/${{ env.TIMESTAMP }}"
+          mkdir -p "$ARCHIVE_DIR"
+          cp *.xml "$ARCHIVE_DIR/"
+          echo "✅ 已将根目录XML复制到 $ARCHIVE_DIR"
+
+      # 提交更新：包括根目录新XML 和 HisData下的新副本
+      - name: 提交更新
+        run: |
+          git config user.name "Auto Bot"
+          git config user.email "bot@example.com"
+          git add HisData/ *.xml
+          git pull --rebase --autostash origin main || true
+          git commit -m "归档 ${{ env.TIMESTAMP }} 并更新最新XML" || echo "No changes"
+          git push
   
