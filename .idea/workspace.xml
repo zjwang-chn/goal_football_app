@@ -4,10 +4,6 @@
     <list default="true" id="6c16d297-5485-42de-b7b0-1d34f59f0b79" name="更改" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/b.py" beforeDir="false" afterPath="$PROJECT_DIR$/b.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/c.py" beforeDir="false" afterPath="$PROJECT_DIR$/c.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/analysis_output_latest.csv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/analysis_output_latest.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -146,11 +142,24 @@
       <workItem from="1778661432988" duration="24000" />
       <workItem from="1778661535703" duration="614000" />
       <workItem from="1778806200626" duration="1003000" />
-      <workItem from="1778808232195" duration="1186000" />
+      <workItem from="1778808232195" duration="3464000" />
+      <workItem from="1778814907645" duration="95000" />
+      <workItem from="1778815836231" duration="880000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/b.py</url>
+          <line>11</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>
