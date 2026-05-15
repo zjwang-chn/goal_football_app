@@ -22,8 +22,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 数据文件路径（与 b.py 输出位置保持一致）
-DATA_FILE = "data/analysis_output_latest.json"
+# 数据文件目录
+DATA_DIR = "data"
 
 # 页面样式
 st.markdown("""
@@ -38,23 +38,56 @@ st.markdown("""
 
 @st.cache_data(ttl=600)  # 缓存10分钟
 def load_data():
-    """加载 JSON 数据文件，若不存在或无效则返回 None"""
-    if not os.path.exists(DATA_FILE):
+    """加载 data/ 目录下所有 JSON 文件，合并 records 返回；若无有效文件则返回 None"""
+    if not os.path.isdir(DATA_DIR):
         return None
-    try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data
-    except Exception as e:
-        st.error(f"读取文件失败: {e}")
+    json_files = sorted(
+        [f for f in os.listdir(DATA_DIR) if f.endswith(".json")],
+        key=lambda f: os.path.getmtime(os.path.join(DATA_DIR, f))
+    )
+    if not json_files:
         return None
+
+    all_records = []
+    # 取所有文件中最新的生成时间作为元信息
+    latest_generated_at = ""
+    total_processed = 0
+    simulation_count = 0
+
+    for fname in json_files:
+        fpath = os.path.join(DATA_DIR, fname)
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                records = data.get("records", [])
+                all_records.extend(records)
+                # 元信息取最新文件的值
+                gen_at = data.get("generated_at", "")
+                if gen_at > latest_generated_at:
+                    latest_generated_at = gen_at
+                    total_processed = data.get("total_processed", 0)
+                    simulation_count = data.get("simulation_count", 0)
+        except Exception as e:
+            st.warning(f"读取文件 {fname} 失败: {e}")
+            continue
+
+    if not all_records:
+        return None
+
+    return {
+        "generated_at": latest_generated_at,
+        "total_processed": total_processed,
+        "simulation_count": simulation_count,
+        "records": all_records,
+    }
 
 def main():
     st.markdown('<p class="main-header">⚽ 足球比分分析记录库</p>', unsafe_allow_html=True)
 
     data = load_data()
     if data is None:
-        st.warning(f"未找到数据文件 `{DATA_FILE}`。请先运行 b.py 生成分析结果。")
+        st.warning(f"未找到 `{DATA_DIR}/` 目录下的 JSON 数据文件。请先运行 b.py 生成分析结果。")
         st.info("**b.py** 会从 GitHub 获取最新赔率并模拟生成数据，通常由 GitHub Actions 定时执行。")
         return
 
@@ -66,7 +99,11 @@ def main():
         st.metric("📊 比赛场次", data.get("total_processed", 0))
     with col3:
         sim_n = data.get("simulation_params", {}).get("n_sims", "?")
-        st.metric("🎲 模拟次数", f"{sim_n:,}")
+        try:
+            sim_n_display = f"{int(sim_n):,}"
+        except (ValueError, TypeError):
+            sim_n_display = str(sim_n)
+        st.metric("🎲 模拟次数", sim_n_display)
 
     stop_reason = data.get("stop_reason")
     if stop_reason:
@@ -105,7 +142,7 @@ def main():
     # 排序
     sort_col = st.sidebar.selectbox(
         "排序依据",
-        options=["记录时间", "胜概率", "平概率", "负概率", "胜赔付", "平赔付", "负赔付", "主进球", "客进球"]
+        options=["时间", "胜概率", "平概率", "负概率", "胜赔付", "平赔付", "负赔付", "主进球", "客进球"]
     )
     ascending = st.sidebar.checkbox("升序", value=False)
 
