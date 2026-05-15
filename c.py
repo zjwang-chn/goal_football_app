@@ -129,9 +129,9 @@ def main():
     # 排序
     sort_col = st.sidebar.selectbox(
         "排序依据",
-        options=["时间","记录时间", "胜概率", "平概率", "负概率", "胜赔付", "平赔付", "负赔付", "主进球", "客进球"]
+        options=["记录时间", "胜概率", "平概率", "负概率", "胜赔付", "平赔付", "负赔付", "主进球", "客进球"]
     )
-    ascending = st.sidebar.checkbox("降序", value=False)
+    ascending = st.sidebar.checkbox("升序", value=False)
 
     # 对于百分比列，需要转为数值排序
     if sort_col in ["胜概率", "平概率", "负概率"]:
