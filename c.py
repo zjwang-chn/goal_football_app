@@ -83,7 +83,7 @@ def load_data():
     }
 
 def main():
-    st.markdown('<p class="main-header">⚽ 足球比分分析记录库</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">⚽ 足球分析记录库</p>', unsafe_allow_html=True)
 
     data = load_data()
     if data is None:
@@ -92,19 +92,6 @@ def main():
         return
 
     # 元信息展示
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("📅 数据生成时间", data.get("generated_at", "未知"))
-    with col2:
-        st.metric("📊 比赛场次", data.get("total_processed", 0))
-    with col3:
-        sim_n = data.get("simulation_params", {}).get("n_sims", "?")
-        try:
-            sim_n_display = f"{int(sim_n):,}"
-        except (ValueError, TypeError):
-            sim_n_display = str(sim_n)
-        st.metric("🎲 模拟次数", sim_n_display)
-
     stop_reason = data.get("stop_reason")
     if stop_reason:
         st.info(f"⏹️ 停止原因: {stop_reason}")
@@ -142,9 +129,9 @@ def main():
     # 排序
     sort_col = st.sidebar.selectbox(
         "排序依据",
-        options=["记录时间", "胜概率", "平概率", "负概率", "胜赔付", "平赔付", "负赔付", "主进球", "客进球"]
+        options=["时间","记录时间", "胜概率", "平概率", "负概率", "胜赔付", "平赔付", "负赔付", "主进球", "客进球"]
     )
-    ascending = st.sidebar.checkbox("升序", value=False)
+    ascending = st.sidebar.checkbox("降序", value=False)
 
     # 对于百分比列，需要转为数值排序
     if sort_col in ["胜概率", "平概率", "负概率"]:
@@ -187,7 +174,7 @@ def main():
             "胜赔付": "胜赔付",
             "平赔付": "平赔付",
             "负赔付": "负赔付",
-            "轮次>10%": "高概率总进球(>10%)",
+            "轮次>10%": "高概率总进球",
             "记录时间": "记录时间",
         }
     )
