@@ -29,7 +29,7 @@ jobs:
           cd data
           
           # 计算3天前的日期 (格式: YYYYMMDD)
-          THREE_DAYS_AGO=$(date -d '3 days ago' +%Y%m%d)
+          THREE_DAYS_AGO=$(date -d '2 days ago' +%Y%m%d)
           echo "3天前日期: $THREE_DAYS_AGO"
           
           # 遍历所有符合格式的 JSON 文件
