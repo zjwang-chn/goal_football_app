@@ -1,74 +1,81 @@
 @echo off
-chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 echo ========================================
-echo        Git ä¸€é”®ä¸Šä¼ è„šæœ¬
+echo Git Ò»¼üÉÏ´«½Å±¾
 echo ========================================
 
-:: åˆ‡æ¢åˆ°è„šæœ¬æ‰€åœ¨ç›®å½•ï¼ˆå³ä»“åº“æ ¹ç›®å½•ï¼‰
-cd /d "%~dp0"
-
-:: æ£€æŸ¥æ˜¯å¦æ˜¯Gitä»“åº“
+:: ¼ì²éÊÇ·ñÊÇGit²Ö¿â
 if not exist ".git" (
-    echo [é”™è¯¯] å½“å‰ç›®å½•ä¸æ˜¯Gitä»“åº“ï¼
-    echo è¯·ç¡®ä¿ .git æ–‡ä»¶å¤¹å­˜åœ¨äº %~dp0
-    exit /b 1
+echo [´íÎó] µ±Ç°Ä¿Â¼²»ÊÇGit²Ö¿â£¡
+pause
+exit /b 1
 )
 
-:: æ˜¾ç¤ºå½“å‰åˆ†æ”¯
+:: ÏÔÊ¾µ±Ç°·ÖÖ§
 for /f "delims=" %%i in ('git branch --show-current 2^>nul') do set "branch=%%i"
 if "%branch%"=="" (
-    echo [é”™è¯¯] æ— æ³•è·å–å½“å‰åˆ†æ”¯
-    exit /b 1
+echo [´íÎó] ÎŞ·¨»ñÈ¡µ±Ç°·ÖÖ§
+pause
+exit /b 1
 )
-echo å½“å‰åˆ†æ”¯: %branch%
+echo µ±Ç°·ÖÖ§: %branch%
 
-:: æ£€æŸ¥æ˜¯å¦æœ‰æ–‡ä»¶æ›´æ”¹
-git status --porcelain > "%temp%\_git_status.txt"
+:: ¼ì²éÊÇ·ñÓĞÎÄ¼ş¸ü¸Ä
+git status --porcelain > "%temp%_git_status.txt"
 set "has_changes="
-for /f "usebackq delims=" %%i in ("%temp%\_git_status.txt") do set "has_changes=1"
-del /f /q "%temp%\_git_status.txt" >nul 2>&1
+for /f "usebackq delims=" %%i in ("%temp%_git_status.txt") do set "has_changes=1"
+del /f /q "%temp%_git_status.txt" >nul 2>&1
 
 if not defined has_changes (
-    echo [æç¤º] æ²¡æœ‰éœ€è¦æäº¤çš„æ–‡ä»¶æ›´æ”¹
-    exit /b 0
+echo.
+echo [ÌáÊ¾] Ã»ÓĞĞèÒªÌá½»µÄÎÄ¼ş¸ü¸Ä
+echo ========================================
+pause
+exit /b 0
 )
 
-:: æ˜¾ç¤ºæ›´æ”¹çŠ¶æ€
+:: ÏÔÊ¾¸ü¸Ä×´Ì¬
 echo.
-echo å¾…æäº¤çš„æ–‡ä»¶:
+echo ´ıÌá½»µÄÎÄ¼ş:
 git status --short
 
-:: è‡ªåŠ¨ç”Ÿæˆæäº¤ä¿¡æ¯ï¼ˆæ—¥æœŸæ—¶é—´ï¼‰
-for /f "tokens=1-3 delims=/ " %%a in ('date /t') do set "today=%%a%%b%%c"
-for /f "tokens=1-2 delims=: " %%a in ('time /t') do set "now=%%a%%b"
-set "commit_msg=Auto update: %today%_%now%"
-echo æäº¤ä¿¡æ¯: %commit_msg%
+:: »ñÈ¡Ìá½»ĞÅÏ¢
+echo.
+set /p commit_msg="ÇëÊäÈëÌá½»ĞÅÏ¢£¨Ö±½Ó»Ø³µÊ¹ÓÃÄ¬ÈÏĞÅÏ¢£©: "
+if "%commit_msg%"=="" (
+set "commit_msg=Update: %date% %time%"
+)
 
-:: æ‰§è¡Œ add
+echo.
+echo ÕıÔÚÌá½»²¢ÍÆËÍ...
+
+:: Ö´ĞĞ add
 git add -A
 if errorlevel 1 (
-    echo [é”™è¯¯] git add å¤±è´¥ï¼
-    exit /b 1
+echo [´íÎó] git add Ê§°Ü£¡
+pause
+exit /b 1
 )
 
-:: æ‰§è¡Œ commit
+:: Ö´ĞĞ commit
 git commit -m "%commit_msg%"
 if errorlevel 1 (
-    echo [é”™è¯¯] git commit å¤±è´¥ï¼
-    exit /b 1
+echo [´íÎó] git commit Ê§°Ü£¡
+pause
+exit /b 1
 )
 
-:: æ‰§è¡Œ push
+:: Ö´ĞĞ push
 git push
 if errorlevel 1 (
-    echo [é”™è¯¯] git push å¤±è´¥ï¼
-    exit /b 1
+echo [´íÎó] git push Ê§°Ü£¡
+pause
+exit /b 1
 )
 
 echo.
 echo ========================================
-echo âœ… æ¨é€æˆåŠŸï¼
+echo ÍÆËÍ³É¹¦£¡
 echo ========================================
-exit /b 0
+pause
