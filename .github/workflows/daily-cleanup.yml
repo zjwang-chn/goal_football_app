@@ -1,10 +1,8 @@
 name: 每日数据清理与备份
 
 on:
-  # 每天早晨 9 点执行
   schedule:
-    - cron: '0 9 * * *'
-  # 支持手动触发
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 jobs:
@@ -22,86 +20,65 @@ jobs:
           git config --local user.name "GitHub Action"
 
       # ===========================================
-      # 处理 /data 文件夹 - 删除3天前的 JSON 文件
+      # 处理 /data 文件夹
       # ===========================================
       - name: 处理 /data 文件夹
         run: |
           cd data
           
-          # 计算3天前的日期 (格式: YYYYMMDD)
-          THREE_DAYS_AGO=$(date -d '2 days ago' +%Y%m%d)
+          THREE_DAYS_AGO=$(date -d '3 days ago' +%Y%m%d)
           echo "3天前日期: $THREE_DAYS_AGO"
           
-          # 遍历所有符合格式的 JSON 文件
           for file in analysis_output_[0-9]*.json; do
-            # 检查文件是否存在
             if [[ -f "$file" ]]; then
-              # 从文件名提取日期部分 (analysis_output_YYYYMMDD_HHMMSS.json)
               filename=$(basename "$file")
               date_part=$(echo "$filename" | sed -n 's/analysis_output_\([0-9]\{8\}\).*/\1/p')
               
-              # 如果提取到日期且小于3天前，则删除
               if [[ -n "$date_part" && "$date_part" -lt "$THREE_DAYS_AGO" ]]; then
                 echo "删除文件: $file (日期: $date_part)"
                 rm -f "$file"
               fi
             fi
           done
-          
-          # .txt 文件保持不动，无需任何操作
 
       # ===========================================
-      # 处理 /HisData 文件夹 - 推送并删除子文件夹
+      # 处理 /HisData 文件夹
       # ===========================================
       - name: 处理 /HisData 文件夹
         run: |
           cd HisData
           
-          # 获取所有子文件夹列表
-          folders=(*/)
-          
-          # 遍历所有子文件夹
-          for folder in "${folders[@]}"; do
-            # 去掉路径末尾的 /
-            folder_name="${folder%/}"
-            
-            # 跳过非目录项
-            if [[ ! -d "$folder_name" ]]; then
-              continue
+          # 遍历所有条目，找出子文件夹
+          for entry in */; do
+            # 检查是否是目录（以 / 结尾的就是目录）
+            if [[ -d "$entry" ]]; then
+              # 去掉末尾的 /
+              folder_name="${entry%/}"
+              echo "找到子文件夹: $folder_name"
+              
+              # 添加到 Git
+              git add "$folder_name"
+              
+              # 提交
+              git commit -m "Backup: $folder_name" 2>/dev/null || echo "文件夹 $folder_name 无变更，跳过提交"
+              
+              # 推送（忽略错误，继续执行）
+              git push origin HEAD 2>/dev/null || echo "推送失败或无需推送"
+              
+              # 删除本地文件夹
+              echo "删除本地文件夹: $folder_name"
+              rm -rf "$folder_name"
+              
+              echo "处理完成: $folder_name"
             fi
-            
-            echo "处理文件夹: $folder_name"
-            
-            # 添加到 Git
-            git add "$folder_name"
-            
-            # 提交
-            git commit -m "Backup: $folder_name" || echo "文件夹 $folder_name 无需提交"
-            
-            # 推送到远程
-            git push origin HEAD || echo "推送失败，将在后续重试"
-            
-            # 删除本地文件夹
-            echo "删除本地文件夹: $folder_name"
-            rm -rf "$folder_name"
           done
-          
-          # .txt 文件保持不动，无需任何操作
 
       # ===========================================
-      # 提交 /data 的更改并推送
+      # 提交并推送
       # ===========================================
-      - name: 提交 data 更改
+      - name: 提交并推送更改
         run: |
-          git add data/
-          git commit -m "Cleanup: 删除3天前的JSON文件 - $(date +%Y-%m-%d)" || echo "无需提交"
+          git add -A
+          git status
+          git commit -m "Cleanup: 每日清理任务 - $(date +%Y-%m-%d)" 2>/dev/null || echo "无变更需要提交"
           git push origin HEAD || echo "推送失败"
-
-      - name: 验证清理结果
-        run: |
-          echo "=== /data 文件夹当前内容 ==="
-          ls -la data/
-          
-          echo ""
-          echo "=== /HisData 文件夹当前内容 ==="
-          ls -la HisData/
