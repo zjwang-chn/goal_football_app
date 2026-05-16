@@ -467,9 +467,9 @@ def main():
     print(f"✅ JSON 历史版本: {json_file_ts}")
 
     # 2. 写入 latest JSON（覆盖）
-    #with open(json_file_latest, "w", encoding="utf-8") as f:
-        #json.dump(output_data, f, ensure_ascii=False, indent=2)
-    #print(f"✅ JSON 最新版本: {json_file_latest}")
+    with open(json_file_latest, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ JSON 最新版本: {json_file_latest}")
 
     # 3. 写入带时间戳的 CSV
     if records:
@@ -480,8 +480,8 @@ def main():
         print(f"✅ CSV 历史版本: {csv_file_ts}")
 
         # 4. 写入 latest CSV（覆盖）
-        #df[column_order].to_csv(csv_file_latest, index=False, encoding="utf-8-sig")
-        #print(f"✅ CSV 最新版本: {csv_file_latest}")
+        df[column_order].to_csv(csv_file_latest, index=False, encoding="utf-8-sig")
+        print(f"✅ CSV 最新版本: {csv_file_latest}")
     else:
         print("⚠️ 无比赛记录，未生成 CSV 文件")
 
