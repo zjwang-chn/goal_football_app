@@ -1,24 +1,26 @@
 @echo off
-chcp 65001 >nul
+
 setlocal enabledelayedexpansion
 
 echo ========================================
-echo        Git ä¸€é”®ä¸Šä¼ è„šæœ¬
+echo        Git Ò»¼üÉÏ´«½Å±¾
 echo ========================================
 
-cd /d "%~dp0"
+cd /d "C:\Users\52483\Desktop\R.9\xml"
 
 if not exist ".git" (
-    echo [é”™è¯¯] å½“å‰ç›®å½•ä¸æ˜¯Gitä»“åº“ï¼
+    echo [´íÎó] µ±Ç°Ä¿Â¼²»ÊÇGit²Ö¿â£¡
+    pause
     exit /b 1
 )
 
 for /f "delims=" %%i in ('git branch --show-current 2^>nul') do set "branch=%%i"
 if "%branch%"=="" (
-    echo [é”™è¯¯] æ— æ³•è·å–å½“å‰åˆ†æ”¯
+    echo [´íÎó] ÎŞ·¨»ñÈ¡µ±Ç°·ÖÖ§
+    pause
     exit /b 1
 )
-echo å½“å‰åˆ†æ”¯: %branch%
+echo µ±Ç°·ÖÖ§: %branch%
 
 git status --porcelain > "%temp%\_git_status.txt"
 set "has_changes="
@@ -26,39 +28,44 @@ for /f "usebackq delims=" %%i in ("%temp%\_git_status.txt") do set "has_changes=
 del /f /q "%temp%\_git_status.txt" >nul 2>&1
 
 if not defined has_changes (
-    echo [æç¤º] æ²¡æœ‰éœ€è¦æäº¤çš„æ–‡ä»¶æ›´æ”¹
+    echo [ÌáÊ¾] Ã»ÓĞĞèÒªÌá½»µÄÎÄ¼ş¸ü¸Ä
+    pause
     exit /b 0
 )
 
 echo.
-echo å¾…æäº¤çš„æ–‡ä»¶:
+echo ´ıÌá½»µÄÎÄ¼ş:
 git status --short
 
 for /f "tokens=1-3 delims=/ " %%a in ('date /t') do set "today=%%a%%b%%c"
 for /f "tokens=1-2 delims=: " %%a in ('time /t') do set "now=%%a%%b"
 set "commit_msg=Auto update: %today%_%now%"
-echo æäº¤ä¿¡æ¯: %commit_msg%
+echo Ìá½»ĞÅÏ¢: %commit_msg%
 
 git add -A
 if errorlevel 1 (
-    echo [é”™è¯¯] git add å¤±è´¥ï¼
+    echo [´íÎó] git add Ê§°Ü£¡
+    pause
     exit /b 1
 )
 
 git commit -m "%commit_msg%"
 if errorlevel 1 (
-    echo [é”™è¯¯] git commit å¤±è´¥ï¼
+    echo [´íÎó] git commit Ê§°Ü£¡
+    pause
     exit /b 1
 )
 
 git push
 if errorlevel 1 (
-    echo [é”™è¯¯] git push å¤±è´¥ï¼
+    echo [´íÎó] git push Ê§°Ü£¡
+    pause
     exit /b 1
 )
 
 echo.
 echo ========================================
-echo âœ… æ¨é€æˆåŠŸï¼
+echo ÍÆËÍ³É¹¦£¡
 echo ========================================
+pause
 exit /b 0
