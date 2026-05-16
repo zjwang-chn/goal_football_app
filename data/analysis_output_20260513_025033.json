@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-05-14 11:34:25",
+  "generated_at": "2026-05-13 10:50:33",
   "total_processed": 0,
-  "stop_reason": "遇到比赛时间超出未来2小时: 504539",
+  "stop_reason": "遇到比赛时间超出未来2小时: 497434",
   "simulation_params": {
     "n_sims": 500000,
     "max_goals": 5
