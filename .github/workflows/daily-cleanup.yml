@@ -1,9 +1,10 @@
 name: 每日数据清理与备份
 
 on:
-  schedule:
-    - cron: '0 1 * * *'
-  workflow_dispatch:
+
+  workflow_dispatch:          # 保留手动触发
+  repository_dispatch:        # 新增：允许外部 HTTP 触发
+    types: [daily-cleanup]    # 事件名称，可自定义
 
 jobs:
   daily-process:
