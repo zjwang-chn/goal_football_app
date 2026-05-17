@@ -406,6 +406,9 @@ def main():
         exp_ho = home_win_prob * ho
         exp_do = draw_prob * do
         exp_ao = away_win_prob * ao
+        # 新增平均赔付：三个赔率的调和平均数
+        # 公式：exp_x = (ho^-1 + do^-1 + ao^-1)^-1
+        exp_x = 1 / (1 / ho + 1 / do + 1 / ao)
 
         # 总进球高概率进球数（概率 > 10%）
         total_df = sim_data['total_goals_df'].copy()
@@ -429,6 +432,7 @@ def main():
             "胜赔付": f"{exp_ho:.4f}",
             "平赔付": f"{exp_do:.4f}",
             "负赔付": f"{exp_ao:.4f}",
+            "平均赔付": f"{exp_x:.4f}",
             "轮次>10%": total_str,
             "记录时间": beijing_time_str()
         }
