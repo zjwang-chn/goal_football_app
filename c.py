@@ -88,7 +88,7 @@ def highlight_payout_style(df):
     """
     使用 pandas.DataFrame.style 实现条件格式化
     1. 胜概率、平概率、负概率三列中大于等于50%的单元格为红色背景
-    2. 2. 对胜赔付、平赔付、负赔付三列：
+    2. 对胜赔付、平赔付、负赔付三列：
        - 赔付值 >= 平均赔付时：
          - 若对应概率 >= 50%，红色背景+黑色加粗
          - 若对应概率 < 50%，黄色背景+黑色加粗
@@ -98,7 +98,7 @@ def highlight_payout_style(df):
 
     # 概率列名与赔付列名的对应关系
     prob_payout_map = {
-        '胜概率': '胜概率': '胜赔付',
+        '胜概率': '胜赔付',
         '平概率': '平赔付',
         '负概率': '负赔付'
     }
@@ -107,6 +107,7 @@ def highlight_payout_style(df):
     for prob_col in ['胜概率', '平概率', '负概率']:
         if prob_col in df.columns:
             try:
+                prob_values = pd.to_numeric(df[prob_col].str.rstrip('%'), errors='coerce')
                 prob_values = pd.to_numeric(df[prob_col].str.rstrip('%'), errors='coerce')
                 mask = (prob_values >= 50) & (~prob_values.isna())
                 styles.loc[mask, prob_col] = 'background-color: #ff0000; color: #ffffff; font-weight: bold;'
@@ -125,7 +126,7 @@ def highlight_payout_style(df):
                 # 赔付 >= 平均赔付
                 mask_ge = (payout_values >= avg_values) & (~payout_values.isna()) & (~avg_values.isna())
                 # 赔付 < 平均赔付
-                mask_lt = (payout_values < avg_values) & (~payout_values.isna()) & (~avg())
+                mask_lt = (payout_values < avg_values) & (~payout_values.isna()) & (~avg_values.isna())
 
                 # 赔付 >= 平均赔付且概率 >= 50%
                 mask_red = mask_ge & (prob_values >= 50) & (~prob_values.isna())
@@ -134,13 +135,11 @@ def highlight_payout_style(df):
 
                 styles.loc[mask_red, payout_col] = 'background-color: #ff0000; color: #ffffff; font-weight: bold;'
                 styles.loc[mask_yellow, payout_col] = 'background-color: #ffeb3b; color: #000000; font-weight: bold;'
-                # 赔付 < 平均赔付 < 平均赔付时保持默认（无样式）
+                # 赔付 < 平均赔付时保持默认（无样式）
             except Exception:
                 pass
 
     return styles
-
-
 
 def main():
     st.markdown('<p class="main-header">⚽ 足球分析记录库</p>', unsafe_allow_html=True)
