@@ -38,7 +38,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 @st.cache_data(ttl=600)
 def load_data():
     """加载 data/ 目录下所有 JSON 文件，合并 records 返回；若无有效文件则返回 None"""
@@ -82,7 +81,6 @@ def load_data():
         "simulation_count": simulation_count,
         "records": all_records,
     }
-
 
 def highlight_payout_style(df):
     """
@@ -264,7 +262,6 @@ def main():
         mime="text/csv",
         use_container_width=True
     )
-
 
 if __name__ == "__main__":
     main()
