@@ -87,31 +87,59 @@ def load_data():
 def highlight_payout_style(df):
     """
     使用 pandas.DataFrame.style 实现条件格式化
-    对胜赔付、平赔付、负赔付三列，高于平均赔付时用黄色背景+黑色加粗高亮
+    1. 胜概率、平概率、负概率三列中大于等于50%的单元格为红色背景
+    2. 2. 对胜赔付、平赔付、负赔付三列：
+       - 赔付值 >= 平均赔付时：
+         - 若对应概率 >= 50%，红色背景+黑色加粗
+         - 若对应概率 < 50%，黄色背景+黑色加粗
+       - 赔付值 < 平均赔付时：普通显示
     """
-    # 创建样式DataFrame（与原始DataFrame形状相同，初始化为空样式）
     styles = pd.DataFrame('', index=df.index, columns=df.columns)
 
-    # 确保需要比较的列存在且为数值类型
-    payout_cols = ['胜赔付', '平赔付', '负赔付']
-    avg_col = '平均赔付'
+    # 概率列名与赔付列名的对应关系
+    prob_payout_map = {
+        '胜概率': '胜概率': '胜赔付',
+        '平概率': '平赔付',
+        '负概率': '负赔付'
+    }
 
-    for col in payout_cols:
-        if col in df.columns and avg_col in df.columns:
-            # 转换为数值类型（原数据可能为字符串如 "0.9098"）
+    # 1. 处理概率列：大于等于50%时红色背景
+    for prob_col in ['胜概率', '平概率', '负概率']:
+        if prob_col in df.columns:
             try:
-                values = pd.to_numeric(df[col], errors='coerce')
+                prob_values = pd.to_numeric(df[prob_col].str.rstrip('%'), errors='coerce')
+                mask = (prob_values >= 50) & (~prob_values.isna())
+                styles.loc[mask, prob_col] = 'background-color: #ff0000; color: #ffffff; font-weight: bold;'
+            except Exception:
+                pass
+
+    # 2. 处理赔付列：基于对应概率和平均赔付
+    avg_col = '平均赔付'
+    for prob_col, payout_col in prob_payout_map.items():
+        if payout_col in df.columns and avg_col in df.columns:
+            try:
+                payout_values = pd.to_numeric(df[payout_col], errors='coerce')
                 avg_values = pd.to_numeric(df[avg_col], errors='coerce')
+                prob_values = pd.to_numeric(df[prob_col].str.rstrip('%'), errors='coerce')
 
-                # 找到高于平均赔付的行
-                mask = (values > avg_values) & (~values.isna()) & (~avg_values.isna())
+                # 赔付 >= 平均赔付
+                mask_ge = (payout_values >= avg_values) & (~payout_values.isna()) & (~avg_values.isna())
+                # 赔付 < 平均赔付
+                mask_lt = (payout_values < avg_values) & (~payout_values.isna()) & (~avg())
 
-                # 设置样式：黄色背景，黑色加粗字体
-                styles.loc[mask, col] = 'background-color: #ffeb3b; font-weight: bold; color: #000000;'
+                # 赔付 >= 平均赔付且概率 >= 50%
+                mask_red = mask_ge & (prob_values >= 50) & (~prob_values.isna())
+                # 赔付 >= 平均赔付且概率 < 50%
+                mask_yellow = mask_ge & (prob_values < 50) & (~prob_values.isna())
+
+                styles.loc[mask_red, payout_col] = 'background-color: #ff0000; color: #ffffff; font-weight: bold;'
+                styles.loc[mask_yellow, payout_col] = 'background-color: #ffeb3b; color: #000000; font-weight: bold;'
+                # 赔付 < 平均赔付 < 平均赔付时保持默认（无样式）
             except Exception:
                 pass
 
     return styles
+
 
 
 def main():
