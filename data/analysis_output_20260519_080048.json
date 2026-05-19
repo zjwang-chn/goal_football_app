@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-05-19 08:00:48",
+  "total_processed": 0,
+  "stop_reason": "遇到比赛时间超出未来2小时: 505510",
+  "simulation_params": {
+    "n_sims": 500000,
+    "max_goals": 5
+  },
+  "records": []
+}
