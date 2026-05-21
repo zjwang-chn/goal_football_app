@@ -25,15 +25,15 @@ jobs:
         run: |
           cd data
           
-          THREE_DAYS_AGO=$(date -d '3 days ago' +%Y%m%d)
-          echo "3天前日期: $THREE_DAYS_AGO"
+          TWO_DAYS_AGO=$(date -d '2 days ago' +%Y%m%d)
+          echo "2天前日期: $TWO_DAYS_AGO"
           
           for file in analysis_output_[0-9]*.json; do
             if [[ -f "$file" ]]; then
               filename=$(basename "$file")
               date_part=$(echo "$filename" | sed -n 's/analysis_output_\([0-9]\{8\}\).*/\1/p')
               
-              if [[ -n "$date_part" && "$date_part" -lt "$THREE_DAYS_AGO" ]]; then
+              if [[ -n "$date_part" && "$date_part" -lt "$TWO_DAYS_AGO" ]]; then
                 echo "删除文件: $file (日期: $date_part)"
                 rm -f "$file"
               fi
