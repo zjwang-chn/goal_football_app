@@ -1281,25 +1281,25 @@ elif page == "分析记录库":
                 if selected_leagues:
                     df = df[df["赛事"].isin(selected_leagues)]
         with col_f2:
-            sort_col = st.selectbox("排序依据", options=["记录时间", "胜概率", "平概率", "负概率", "胜赔付"])
+            sort_col = st.selectbox("排序依据", options=["记录时间", "胜概率", "平概率", "负概率", "胜赔付", "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"])
             ascending = st.checkbox("升序", value=False)
-            if sort_col in ["胜概率", "平概率", "负概率"]:
+            if sort_col in ["胜概率", "平概率", "负概率"] + ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]:
                 df_sorted = df.copy()
                 df_sorted[sort_col + "_数值"] = df_sorted[sort_col].str.rstrip('%').astype(float)
                 df_sorted = df_sorted.sort_values(sort_col + "_数值", ascending=ascending)
-                df = df_sorted.drop(columns=[sort_col + "_数值"])
+                df_sorted = df_sorted.drop(columns=[sort_col + "_数值"])
             elif sort_col == "胜赔付":
                 df_sorted = df.copy()
                 df_sorted[sort_col + "_数值"] = df_sorted[sort_col].astype(float)
                 df_sorted = df_sorted.sort_values(sort_col + "_数值", ascending=ascending)
-                df = df_sorted.drop(columns=[sort_col + "_数值"])
+                df_sorted = df_sorted.drop(columns=[sort_col + "_数值"])
             else:
-                df = df.sort_values(sort_col, ascending=ascending)
+                df_sorted = df.sort_values(sort_col, ascending=ascending)
         with col_f3:
             if st.button("🗑️ 清空所有记录", use_container_width=True):
                 st.session_state.analysis_records = []
                 st.rerun()
-                
+
         # 可选：只显示有完整概率分布数据的记录（非“待模拟”且非“无”）
         show_only_complete = st.checkbox("仅显示有完整概率分布数据的记录", value=False)
         if show_only_complete:
@@ -1331,7 +1331,11 @@ elif page == "分析记录库":
                 "记录时间"]
         styled_df = styled_df[cols]  # 重新排序
 
-        column_config = {
+        st.dataframe(
+            styled_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
             "时间": st.column_config.TextColumn(width=120),
             "胜概率": st.column_config.TextColumn(width=65),
             "平概率": st.column_config.TextColumn(width=65),
@@ -1353,14 +1357,7 @@ elif page == "分析记录库":
             "赛事": st.column_config.TextColumn(width="auto"),
             "主队": st.column_config.TextColumn(width="auto"),
             "客队": st.column_config.TextColumn(width="auto"),
-        }
-
-        # 显示表格（绝对不报错）
-        st.dataframe(
-            styled_df,
-            column_config=column_config,
-            use_container_width=True,
-            hide_index=True
+          }
         )
 
         # ==============================================
