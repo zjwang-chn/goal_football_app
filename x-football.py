@@ -845,6 +845,67 @@ if run_sim:
 
     st.success(f"✅ 模拟完成！耗时 {data['elapsed']:.3f} 秒，核心结果及总进球概率分布已添加到【分析记录库】。")
 
+def highlight_payout_style(df):
+    """
+    使用 pandas.DataFrame.style 实现条件格式化
+    1. 胜概率、平概率、负概率三列中大于等于50%的单元格为红色背景
+    2. 对胜赔付、平赔付、负赔付三列：
+       - 赔付值 >= 平均赔付时：
+         - 若对应概率 >= 50%，红色背景+黑色加粗
+         - 若对应概率 < 50%，黄色背景+黑色加粗
+       - 赔付值 < 平均赔付时：普通显示
+    3. 对总进球概率列（0球~7+球），概率 >= 9.5% 的单元格为浅绿色背景+黑色加粗
+    """
+    styles = pd.DataFrame('', index=df.index, columns=df.columns)
+
+    prob_payout_map = {
+        '胜概率': '胜赔付',
+        '平概率': '平赔付',
+        '负概率': '负赔付'
+    }
+
+    # 1. 概率列高亮（≥50%）
+    for prob_col in ['胜概率', '平概率', '负概率']:
+        if prob_col in df.columns:
+            try:
+                prob_values = pd.to_numeric(df[prob_col].str.rstrip('%'), errors='coerce')
+                mask = (prob_values >= 50) & (~prob_values.isna())
+                styles.loc[mask, prob_col] = 'background-color: #ff0000; color: #ffffff; font-weight: bold;'
+            except Exception:
+                pass
+
+    # 2. 赔付列高亮
+    avg_col = '平均赔付'
+    for prob_col, payout_col in prob_payout_map.items():
+        if payout_col in df.columns and avg_col in df.columns:
+            try:
+                payout_values = pd.to_numeric(df[payout_col], errors='coerce')
+                avg_values = pd.to_numeric(df[avg_col], errors='coerce')
+                prob_values = pd.to_numeric(df[prob_col].str.rstrip('%'), errors='coerce')
+
+                mask_ge = (payout_values >= avg_values) & (~payout_values.isna()) & (~avg_values.isna())
+                mask_red = mask_ge & (prob_values >= 50) & (~prob_values.isna())
+                mask_yellow = mask_ge & (prob_values < 50) & (~prob_values.isna())
+
+                styles.loc[mask_red, payout_col] = 'background-color: #ff0000; color: #ffffff; font-weight: bold;'
+                styles.loc[mask_yellow, payout_col] = 'background-color: #ffeb3b; color: #000000; font-weight: bold;'
+            except Exception:
+                pass
+
+    # 3. 总进球概率列高亮（≥9.5%）
+    score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
+    for col in score_cols:
+        if col in df.columns:
+            try:
+                # 将百分比字符串（如 "12.5%"）转为浮点数
+                prob_vals = df[col].astype(str).str.rstrip('%').astype(float)
+                mask = (prob_vals >= 9.5) & (~prob_vals.isna())
+                styles.loc[mask, col] = 'background-color: #d4edda; color: #000000; font-weight: bold;'  # 浅绿色背景
+            except Exception:
+                pass
+
+    return styles
+
 # ================= 页面内容 =================
 # 从 session state 获取模拟结果（可能为 None）
 data = st.session_state.sim_data
