@@ -1300,10 +1300,7 @@ elif page == "分析记录库":
                 st.session_state.analysis_records = []
                 st.rerun()
 
-       with col_f3:            
-    if st.button("🗑️ 清空所有记录", use_container_width=True):
-        st.session_state.analysis_records = []
-        st.rerun()
+
 
 # ==============================================
 # 可选：只显示有完整概率分布数据的记录（非“待模拟”且非“无”）
