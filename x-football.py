@@ -1299,21 +1299,38 @@ elif page == "分析记录库":
             if st.button("🗑️ 清空所有记录", use_container_width=True):
                 st.session_state.analysis_records = []
                 st.rerun()
- 
-
-        # ==============================================
-        # 可选：只显示有完整概率分布数据的记录
+                
+        # 可选：只显示有完整概率分布数据的记录（非“待模拟”且非“无”）
         show_only_complete = st.checkbox("仅显示有完整概率分布数据的记录", value=False)
         if show_only_complete:
-            df = df[df["0球"] != "0.0%"]
+            df_sorted = df_sorted[~df_sorted["0球"].isin(["0.0%"]) | (df_sorted["0球"] != "0.0%")]
+
+        # ========== 新增：高亮总进球概率 ≥9.5% 的单元格 ==========
+        def highlight_goal_probs(dataframe):
+            """返回样式，对 ≥9.5% 的总进球概率列设置浅绿色背景+加粗"""
+            score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
+            styles = pd.DataFrame('', index=dataframe.index, columns=dataframe.columns)
+            for col in score_cols:
+                if col in dataframe.columns:
+                    try:
+                        # 去除百分号并转为浮点数
+                        prob_vals = dataframe[col].astype(str).str.rstrip('%').astype(float)
+                        mask = (prob_vals >= 9.5) & (~prob_vals.isna())
+                        styles.loc[mask, col] = 'background-color: #d4edda; color: #000000; font-weight: bold;'
+                    except Exception:
+                        pass
+            return styles
+
+        # 应用样式
+        styled_df = df_sorted.style.apply(highlight_goal_probs, axis=None)
 
         # 调整列顺序
         cols = ["时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率",
                 "主进球", "客进球", "胜赔付", "平赔付", "负赔付",
-                "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球", "记录时间"]
-        df = df[cols]
-        
-        # ===================== 列宽配置（正常使用）=====================
+                "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球",
+                "记录时间"]
+        styled_df = styled_df[cols]  # 重新排序
+
         column_config = {
             "时间": st.column_config.TextColumn(width=120),
             "胜概率": st.column_config.TextColumn(width=65),
@@ -1340,7 +1357,7 @@ elif page == "分析记录库":
 
         # 显示表格（绝对不报错）
         st.dataframe(
-            df,
+            styled_df,
             column_config=column_config,
             use_container_width=True,
             hide_index=True
