@@ -245,26 +245,26 @@ def main():
 
     # 配置列宽
     col_config = {
-        "时间": st.column_config.TextColumn("时间", width="medium"),
-        "赛事": st.column_config.TextColumn("赛事", width="medium"),
-        "主队": st.column_config.TextColumn("主队", width="medium"),
-        "客队": st.column_config.TextColumn("客队", width="medium"),
-        "胜概率": st.column_config.TextColumn("胜概率", width="small"),
-        "平概率": st.column_config.TextColumn("平概率", width="small"),
-        "负概率": st.column_config.TextColumn("负概率", width="small"),
-        "主进球": st.column_config.TextColumn("主进球", width="small"),
-        "客进球": st.column_config.TextColumn("客进球", width="small"),
-        "胜赔付": st.column_config.TextColumn("胜赔付", width="small"),
-        "平赔付": st.column_config.TextColumn("平赔付", width="small"),
-        "负赔付": st.column_config.TextColumn("负赔付", width="small"),
-        "平均赔付": st.column_config.TextColumn("平均赔付", width="small"),
-        "记录时间": st.column_config.TextColumn("记录时间", width="medium"),
-        "match_id": st.column_config.TextColumn("ID", width="small"),
+        "时间": st.column_config.TextColumn("时间", width=120),
+        "赛事": st.column_config.TextColumn("赛事", width="auto"),
+        "主队": st.column_config.TextColumn("主队", width="auto"),
+        "客队": st.column_config.TextColumn("客队", width="auto"),
+        "胜概率": st.column_config.TextColumn("胜概率", width=65),
+        "平概率": st.column_config.TextColumn("平概率", width=65),
+        "负概率": st.column_config.TextColumn("负概率", width=65),
+        "主进球": st.column_config.TextColumn("主进球", width=65),
+        "客进球": st.column_config.TextColumn("客进球", width=65),
+        "胜赔付": st.column_config.TextColumn("胜赔付", width=65),
+        "平赔付": st.column_config.TextColumn("平赔付", width=65),
+        "负赔付": st.column_config.TextColumn("负赔付", width=65),
+        "平均赔付": st.column_config.TextColumn("平均赔付", width=65),
+        "记录时间": st.column_config.TextColumn("记录时间", width=120),
+        "match_id": st.column_config.TextColumn("ID", width=70),
     }
     # 为8个概率列添加配置
     for g in range(7):
-        col_config[f"{g}球"] = st.column_config.TextColumn(f"{g}球", width="small")
-    col_config["7+球"] = st.column_config.TextColumn("7+球", width="small")
+        col_config[f"{g}球"] = st.column_config.TextColumn(f"{g}球", width=55)
+    col_config["7+球"] = st.column_config.TextColumn("7+球", width=55)
 
     st.dataframe(
         styled_df,
