@@ -659,14 +659,14 @@ if 'sim_data' not in st.session_state:
 if 'analysis_records' not in st.session_state:
     st.session_state.analysis_records = []
 
-def update_or_add_core_record(match_id: str, core_data: dict, high_prob_totals: List[int] = None) -> None:
+def update_or_add_core_record(match_id: str, core_data: dict, total_prob_str: str = None) -> None:
     """
     更新或添加核心模拟记录（基础模拟部分）
     core_data 应包含:
         - home_win_prob, draw_prob, away_win_prob (数值)
         - exp_home, exp_away (数值)
         - exp_ho, exp_do, exp_ao (数值)
-    high_prob_totals: 总进球概率>10%的进球数列表
+    total_prob_str: 总进球概率分布字符串，例如 "0:12.5% 1:15.2% ... 7+:1.5%"
     """
     # 获取比赛基本信息
     basic = loader.get_match_basic_info(match_id)
@@ -686,15 +686,15 @@ def update_or_add_core_record(match_id: str, core_data: dict, high_prob_totals: 
             existing_index = i
             break
 
-    # 处理高概率总进球字符串
-    if high_prob_totals is None:
+    # 处理总进球概率分布字符串
+    if total_prob_str is None:
         # 保留原有值（如果有）
-        existing_totals = None
+        existing_str = None
         if existing_index is not None:
-            existing_totals = st.session_state.analysis_records[existing_index].get("轮次>10%", "待模拟")
-        total_str = existing_totals if existing_totals is not None else "待模拟"
+            existing_str = st.session_state.analysis_records[existing_index].get("轮次>10%", "待模拟")
+        final_str = existing_str if existing_str is not None else "待模拟"
     else:
-        total_str = ", ".join(map(str, high_prob_totals)) if high_prob_totals else "无"
+        final_str = total_prob_str
 
     new_record = {
         "match_id": match_id,
@@ -710,7 +710,7 @@ def update_or_add_core_record(match_id: str, core_data: dict, high_prob_totals: 
         "胜赔付": f"{core_data['exp_ho']:.4f}",
         "平赔付": f"{core_data['exp_do']:.4f}",
         "负赔付": f"{core_data['exp_ao']:.4f}",
-        "轮次>10%": total_str,  # 此处存储总进球高概率进球数
+        "轮次>10%": final_str,   # 此处存储总进球概率分布字符串
         "记录时间": get_beijing_time_str()
     }
 
@@ -818,11 +818,16 @@ if run_sim:
         data = run_simulation(home_probs, away_probs, sim_times)
         st.session_state.sim_data = data
 
-        # 计算总进球概率 > 10% 的进球数
+        # 计算总进球概率分布（0~6球，7+球）
         total_df = data['total_goals_df'].copy()
-        high_prob_totals = total_df[total_df['概率'] > 0.10]['总进球'].tolist()
+        prob_map = {}
+        for g in range(8):  # 0-6
+            prob = total_df[total_df['总进球'] == g]['概率'].values
+            prob_map[g] = prob[0] if len(prob) > 0 else 0.0
+        prob_7plus = total_df[total_df['总进球'] >= 7]['概率'].sum()
+        total_prob_str = " ".join([f"{g}:{prob_map[g]:.1%}" for g in range(7)] + [f"7+:{prob_7plus:.1%}"])
 
-        # --- 核心数据记录到分析库（包含高概率总进球）---
+        # --- 核心数据记录到分析库（包含总进球概率分布）---
         match_id = st.session_state.selected_match_id
         ho, do, ao = loader.get_windrawwin_odds(match_id)
         core = {
@@ -835,10 +840,10 @@ if run_sim:
             "exp_do": data['draw_prob'] * do,
             "exp_ao": data['away_win_prob'] * ao,
         }
-        update_or_add_core_record(match_id, core, high_prob_totals)
+        update_or_add_core_record(match_id, core, total_prob_str)   # 注意参数名改为 total_prob_str
         # ---
 
-    st.success(f"✅ 模拟完成！耗时 {data['elapsed']:.3f} 秒，核心结果及高概率总进球已添加到【分析记录库】。")
+    st.success(f"✅ 模拟完成！耗时 {data['elapsed']:.3f} 秒，核心结果及总进球概率分布已添加到【分析记录库】。")
 
 # ================= 页面内容 =================
 # 从 session state 获取模拟结果（可能为 None）
@@ -1219,12 +1224,28 @@ elif page == "分析记录库":
     st.markdown('<p class="main-header">📋 分析记录库</p>', unsafe_allow_html=True)
 
     if not st.session_state.analysis_records:
-        st.info("暂无记录。请在「首页」运行百万次模拟，核心数据和总进球高概率进球数将自动记录。")
+        st.info("暂无记录。请在「首页」运行百万次模拟，核心数据和总进球概率分布将自动记录。")
     else:
-        # 提取显示用的字段（不包含 match_id）
+        # 提取显示用的字段（包含解析后的总进球概率分布列）
         display_records = []
         for rec in st.session_state.analysis_records:
-            display_records.append({
+            # 解析总进球概率分布字符串
+            prob_str = rec.get("轮次>10%", "")
+            # 初始化默认概率字典
+            goal_probs = {f"{g}球": "0.0%" for g in range(7)}
+            goal_probs["7+球"] = "0.0%"
+            if prob_str and prob_str != "待模拟" and prob_str != "无":
+                # 格式示例: "0:12.5% 1:15.2% 2:10.3% 3:8.2% 4:5.1% 5:3.0% 6:1.8% 7+:1.5%"
+                parts = prob_str.split()
+                for part in parts:
+                    if ':' in part:
+                        key, val = part.split(':', 1)
+                        if key == '7+':
+                            goal_probs["7+球"] = val
+                        else:
+                            goal_probs[f"{key}球"] = val
+            # 构建新记录
+            new_rec = {
                 "时间": rec.get("时间", ""),
                 "赛事": rec.get("赛事", ""),
                 "主队": rec.get("主队", ""),
@@ -1237,9 +1258,18 @@ elif page == "分析记录库":
                 "胜赔付": rec.get("胜赔付", ""),
                 "平赔付": rec.get("平赔付", ""),
                 "负赔付": rec.get("负赔付", ""),
-                "高概率总进球(>10%)": rec.get("轮次>10%", "待模拟"),  # 列名更清晰
+                # 新增8个总进球概率列
+                "0球": goal_probs["0球"],
+                "1球": goal_probs["1球"],
+                "2球": goal_probs["2球"],
+                "3球": goal_probs["3球"],
+                "4球": goal_probs["4球"],
+                "5球": goal_probs["5球"],
+                "6球": goal_probs["6球"],
+                "7+球": goal_probs["7+球"],
                 "记录时间": rec.get("记录时间", "")
-            })
+            }
+            display_records.append(new_rec)
         df = pd.DataFrame(display_records)
 
         # 筛选与排序
@@ -1270,10 +1300,17 @@ elif page == "分析记录库":
                 st.session_state.analysis_records = []
                 st.rerun()
 
-        # 额外选项：只显示有高概率总进球数据的记录（非“待模拟”且非“无”）
-        show_only_complete = st.checkbox("仅显示已有高概率总进球数据的记录", value=False)
+        # 可选：只显示有完整概率分布数据的记录（非“待模拟”且非“无”）
+        show_only_complete = st.checkbox("仅显示有完整概率分布数据的记录", value=False)
         if show_only_complete:
-            df = df[~df["高概率总进球(>10%)"].isin(["待模拟", "无"])]
+            df = df[~df["0球"].isin(["0.0%"]) | (df["0球"] != "0.0%")]  # 简单判断
+
+        # 调整列顺序：将8个概率列放在赔付列之后、记录时间之前
+        cols = ["时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率",
+                "主进球", "客进球", "胜赔付", "平赔付", "负赔付",
+                "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球",
+                "记录时间"]
+        df = df[cols]
 
         st.dataframe(df, use_container_width=True, hide_index=True)
 
