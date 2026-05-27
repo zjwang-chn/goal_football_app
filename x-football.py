@@ -1300,30 +1300,28 @@ elif page == "分析记录库":
                 st.session_state.analysis_records = []
                 st.rerun()
 
+       with col_f3:            
+    if st.button("🗑️ 清空所有记录", use_container_width=True):
+        st.session_state.analysis_records = []
+        st.rerun()
 
+# ==============================================
 # 可选：只显示有完整概率分布数据的记录（非“待模拟”且非“无”）
 show_only_complete = st.checkbox("仅显示有完整概率分布数据的记录", value=False)
 if show_only_complete:
-    df = df[~df["0球"].isin(["0.0%"]) | (df["0球"] != "0.0%")]  # 简单判断
+    df = df[~df["0球"].isin(["0.0%"]) | (df["0球"] != "0.0%")]
 
-# 调整列顺序：将8个概率列放在赔付列之后、记录时间之前
 cols = ["时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率",
         "主进球", "客进球", "胜赔付", "平赔付", "负赔付",
-        "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球",
-        "记录时间"]
+        "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球", "记录时间"]
 df = df[cols]
 
-# ----------------------
-# 新增：高亮函数（≥9.5% 高亮）
-# ----------------------
 def highlight_above_95(val):
     try:
-        # 兼容 9.5% 字符串格式
         if isinstance(val, str) and "%" in val:
             val_num = float(val.replace("%", ""))
             if val_num >= 9.5:
                 return "background-color: #fff382; color: black;"
-        # 兼容 0.095 数字格式
         elif isinstance(val, (int, float)):
             if val >= 0.095:
                 return "background-color: #fff382; color: black;"
@@ -1331,15 +1329,10 @@ def highlight_above_95(val):
         pass
     return ""
 
-# 应用高亮到 0球~7+球 8列
-score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
+score_cols = ["0球","1球","2球","3球","4球","5球","6球","7+球"]
 df_styled = df.style.applymap(highlight_above_95, subset=score_cols)
 
-# ----------------------
-# 新增：列宽配置（你要的固定+自动）
-# ----------------------
 column_config = {
-    # 固定宽度列
     "时间": st.column_config.TextColumn(width=150),
     "胜概率": st.column_config.TextColumn(width=90),
     "平概率": st.column_config.TextColumn(width=90),
@@ -1358,22 +1351,13 @@ column_config = {
     "6球": st.column_config.TextColumn(width=85),
     "7+球": st.column_config.TextColumn(width=85),
     "记录时间": st.column_config.TextColumn(width=160),
-
-    # 自动宽度（只有这3列）
     "赛事": st.column_config.TextColumn(width="auto"),
     "主队": st.column_config.TextColumn(width="auto"),
     "客队": st.column_config.TextColumn(width="auto"),
 }
 
-# ----------------------
-# 最终展示（整合了：列宽 + 高亮 + 隐藏索引 + 铺满宽度）
-# ----------------------
-st.dataframe(
-    df_styled,                # 带高亮
-    column_config=column_config,  # 带列宽
-    use_container_width=True, # 铺满屏幕
-    hide_index=True           # 隐藏索引
-)
+st.dataframe(df_styled, column_config=column_config, use_container_width=True, hide_index=True)
+
 
         # 导出 CSV
         beijing_now = datetime.datetime.now(timezone(timedelta(hours=8)))
