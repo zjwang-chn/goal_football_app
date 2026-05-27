@@ -1229,13 +1229,10 @@ elif page == "分析记录库":
         # 提取显示用的字段（包含解析后的总进球概率分布列）
         display_records = []
         for rec in st.session_state.analysis_records:
-            # 解析总进球概率分布字符串
             prob_str = rec.get("轮次>10%", "")
-            # 初始化默认概率字典
             goal_probs = {f"{g}球": "0.0%" for g in range(7)}
             goal_probs["7+球"] = "0.0%"
-            if prob_str and prob_str != "待模拟" and prob_str != "无":
-                # 格式示例: "0:12.5% 1:15.2% 2:10.3% 3:8.2% 4:5.1% 5:3.0% 6:1.8% 7+:1.5%"
+            if prob_str and prob_str not in ("待模拟", "无"):
                 parts = prob_str.split()
                 for part in parts:
                     if ':' in part:
@@ -1244,7 +1241,6 @@ elif page == "分析记录库":
                             goal_probs["7+球"] = val
                         else:
                             goal_probs[f"{key}球"] = val
-            # 构建新记录
             new_rec = {
                 "时间": rec.get("时间", ""),
                 "赛事": rec.get("赛事", ""),
@@ -1258,7 +1254,6 @@ elif page == "分析记录库":
                 "胜赔付": rec.get("胜赔付", ""),
                 "平赔付": rec.get("平赔付", ""),
                 "负赔付": rec.get("负赔付", ""),
-                # 新增8个总进球概率列
                 "0球": goal_probs["0球"],
                 "1球": goal_probs["1球"],
                 "2球": goal_probs["2球"],
@@ -1300,20 +1295,25 @@ elif page == "分析记录库":
                 st.session_state.analysis_records = []
                 st.rerun()
 
-        # 可选：只显示有完整概率分布数据的记录（非“待模拟”且非“无”）
+        # 可选：只显示有完整概率分布数据的记录
         show_only_complete = st.checkbox("仅显示有完整概率分布数据的记录", value=False)
         if show_only_complete:
             df_sorted = df_sorted[~df_sorted["0球"].isin(["0.0%"]) | (df_sorted["0球"] != "0.0%")]
 
-        # ========== 新增：高亮总进球概率 ≥9.5% 的单元格 ==========
+        # 调整列顺序（先对 DataFrame 重排列，再应用样式）
+        cols = ["时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率",
+                "主进球", "客进球", "胜赔付", "平赔付", "负赔付",
+                "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球",
+                "记录时间"]
+        df_sorted = df_sorted[cols]  # ✅ 正确：对 DataFrame 重排序
+
+        # 高亮函数
         def highlight_goal_probs(dataframe):
-            """返回样式，对 ≥9.5% 的总进球概率列设置浅绿色背景+加粗"""
             score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
             styles = pd.DataFrame('', index=dataframe.index, columns=dataframe.columns)
             for col in score_cols:
                 if col in dataframe.columns:
                     try:
-                        # 去除百分号并转为浮点数
                         prob_vals = dataframe[col].astype(str).str.rstrip('%').astype(float)
                         mask = (prob_vals >= 9.5) & (~prob_vals.isna())
                         styles.loc[mask, col] = 'background-color: #d4edda; color: #000000; font-weight: bold;'
@@ -1321,16 +1321,9 @@ elif page == "分析记录库":
                         pass
             return styles
 
-        # 应用样式
         styled_df = df_sorted.style.apply(highlight_goal_probs, axis=None)
 
-        # 调整列顺序
-        cols = ["时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率",
-                "主进球", "客进球", "胜赔付", "平赔付", "负赔付",
-                "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球",
-                "记录时间"]
-        styled_df = styled_df[cols]  # 重新排序
-
+        # 展示表格
         st.dataframe(
             styled_df,
             use_container_width=True,
