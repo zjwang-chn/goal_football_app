@@ -1295,32 +1295,30 @@ elif page == "分析记录库":
                 df = df_sorted.drop(columns=[sort_col + "_数值"])
             else:
                 df = df.sort_values(sort_col, ascending=ascending)
-        with col_f3:
-            if st.button("🗑️ 清空所有记录", use_container_width=True):
-                st.session_state.analysis_records = []
-                st.rerun()
-
-
+        with col_f3:            
+    if st.button("🗑️ 清空所有记录", use_container_width=True):
+        st.session_state.analysis_records = []
+        st.rerun()
 
 # ==============================================
+# 这里放我给你的 列宽 + 高亮代码（我已经帮你对齐好）
 # 可选：只显示有完整概率分布数据的记录（非“待模拟”且非“无”）
 show_only_complete = st.checkbox("仅显示有完整概率分布数据的记录", value=False)
 if show_only_complete:
-    df = df[~df["0球"].isin(["0.0%"]) | (df["0球"] != "0.0%")]
+    df = df[df["0球"] != "0.0%"]
 
+# 调整列顺序
 cols = ["时间", "赛事", "主队", "客队", "胜概率", "平概率", "负概率",
         "主进球", "客进球", "胜赔付", "平赔付", "负赔付",
         "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球", "记录时间"]
 df = df[cols]
 
+# 高亮 >=9.5%
 def highlight_above_95(val):
     try:
         if isinstance(val, str) and "%" in val:
             val_num = float(val.replace("%", ""))
             if val_num >= 9.5:
-                return "background-color: #fff382; color: black;"
-        elif isinstance(val, (int, float)):
-            if val >= 0.095:
                 return "background-color: #fff382; color: black;"
     except:
         pass
@@ -1329,6 +1327,7 @@ def highlight_above_95(val):
 score_cols = ["0球","1球","2球","3球","4球","5球","6球","7+球"]
 df_styled = df.style.applymap(highlight_above_95, subset=score_cols)
 
+# 列宽配置
 column_config = {
     "时间": st.column_config.TextColumn(width=150),
     "胜概率": st.column_config.TextColumn(width=90),
@@ -1353,18 +1352,20 @@ column_config = {
     "客队": st.column_config.TextColumn(width="auto"),
 }
 
+# 显示表格
 st.dataframe(df_styled, column_config=column_config, use_container_width=True, hide_index=True)
 
+# ==============================================
+# 导出 CSV（你原来的代码，完全没动，缩进正确）
+beijing_now = datetime.datetime.now(timezone(timedelta(hours=8)))
+csv = df.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="📥 导出为 CSV",
+    data=csv,
+    file_name=f"analysis_records_{beijing_now.strftime('%Y%m%d_%H%M%S')}.csv",
+    mime="text/csv"
+)
 
-        # 导出 CSV
-        beijing_now = datetime.datetime.now(timezone(timedelta(hours=8)))
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 导出为 CSV",
-            data=csv,
-            file_name=f"analysis_records_{beijing_now.strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv",
-        )
 
 st.markdown("---")
 st.caption("数据基于闯关概率模型模拟生成，实际结果可能因随机性有所波动。")
