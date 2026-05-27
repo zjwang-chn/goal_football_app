@@ -232,7 +232,7 @@ def main():
             "平赔付": st.column_config.TextColumn("平赔付", width="small"),
             "负赔付": st.column_config.TextColumn("负赔付", width="small"),
             "平均赔付": st.column_config.TextColumn("平均赔付", width="small"),
-            "总进球": st.column_config.TextColumn("总进球", width=None),
+            "轮次>10%": st.column_config.TextColumn("总进球", width=None),
             "记录时间": st.column_config.TextColumn("记录时间", width=None),
         }
     )
