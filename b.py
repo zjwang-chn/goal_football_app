@@ -421,7 +421,7 @@ def main():
             "平赔付": f"{exp_do:.4f}",
             "负赔付": f"{exp_ao:.4f}",
             "平均赔付": f"{exp_x:.4f}",
-            "总进球": total_prob_str,   # 字段名保持不变，内容改为概率分布
+            "轮次>10%": total_prob_str,   # 字段名保持不变，内容改为概率分布
             "记录时间": beijing_time_str()
         }
         records.append(record)
