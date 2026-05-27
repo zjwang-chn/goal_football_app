@@ -55,12 +55,12 @@ def parse_gt_to_datetime(gt_raw: str) -> Optional[datetime.datetime]:
     gt_raw = gt_raw.strip()
     beijing_tz = timezone(timedelta(hours=8))
     
-    # 格式1: "20260508 01:30" (14字符，含空格和冒号)
+    # 格式1: "20260508 01:30"
     if ' ' in gt_raw and ':' in gt_raw:
         try:
             parts = gt_raw.split()
-            date_str = parts[0]      # "20260508"
-            time_str = parts[1]      # "01:30"
+            date_str = parts[0]
+            time_str = parts[1]
             year = int(date_str[:4])
             month = int(date_str[4:6])
             day = int(date_str[6:8])
@@ -70,7 +70,7 @@ def parse_gt_to_datetime(gt_raw: str) -> Optional[datetime.datetime]:
         except (ValueError, IndexError):
             pass
     
-    # 格式2: 纯数字 "20250415193500"
+    # 格式2: 纯数字14位
     if len(gt_raw) == 14 and gt_raw.isdigit():
         try:
             dt = datetime.datetime.strptime(gt_raw, "%Y%m%d%H%M%S")
@@ -85,7 +85,6 @@ def format_gt_display(gt_raw: str) -> str:
     if not gt_raw:
         return "未知"
     
-    # 处理 "20260508 01:30"
     if ' ' in gt_raw and ':' in gt_raw:
         try:
             date_part, time_part = gt_raw.split()
@@ -96,7 +95,6 @@ def format_gt_display(gt_raw: str) -> str:
         except:
             pass
     
-    # 处理纯数字14位
     if len(gt_raw) == 14 and gt_raw.isdigit():
         try:
             dt = datetime.datetime.strptime(gt_raw, "%Y%m%d%H%M%S")
@@ -106,7 +104,7 @@ def format_gt_display(gt_raw: str) -> str:
     
     return gt_raw
 
-# ================= XML 解析模块（与原 a.py 一致）=================
+# ================= XML 解析模块 =================
 def parse_numberofgoals(xml_content: str) -> Tuple[Dict[str, Dict], List[str]]:
     root = ET.fromstring(xml_content)
     result = {}
@@ -223,7 +221,6 @@ def odds_to_probs(odds_home: List[float], odds_away: List[float]) -> Tuple[List[
             cum_D += d
         return E
 
-    # 确保长度
     if len(odds_home) < 6:
         odds_home = odds_home + [1.0] * (6 - len(odds_home))
     if len(odds_away) < 6:
@@ -303,7 +300,6 @@ def run_simulation(home_p, away_p, n_sims):
 # ================= 主控制逻辑 =================
 def load_xml_files() -> Optional[FootballDataLoader]:
     """从当前目录读取 XML 文件，若失败则从 GitHub 下载"""
-    # 尝试从当前目录加载本地 XML 文件
     xml_contents = {}
     for fname in XML_FILES:
         if os.path.exists(fname):
@@ -313,13 +309,11 @@ def load_xml_files() -> Optional[FootballDataLoader]:
             print(f"⚠️ 本地文件 {fname} 不存在")
             break
     else:
-        # 所有文件都存在
         loader = FootballDataLoader()
         loader.load_from_dict(xml_contents)
         print("✅ 使用本地 XML 文件（当前目录）")
         return loader
 
-    # 回退到网络下载
     print("⬇️ 本地 XML 文件未找到，从 GitHub 下载...")
     xml_contents = {}
     for fname in XML_FILES:
@@ -343,13 +337,11 @@ def main():
     print(f"[{beijing_time_str()}] 开始批量分析脚本 b.py")
     print(f"模拟次数: {SIM_N:,}")
 
-    # 1. 加载数据
     loader = load_xml_files()
     if loader is None:
         print("数据加载失败，退出")
         return
 
-    # 2. 按原始顺序遍历 match_id
     ordered_ids = loader.ordered_ids
     print(f"总共发现 {len(ordered_ids)} 场比赛（按原始顺序）")
 
@@ -373,49 +365,45 @@ def main():
             print(f"跳过 {match_id}: 时间解析失败 ({gt_raw})")
             continue
 
-        # 计算时间差
         delta = match_time - now_beijing
-        # 跳过过去的比赛（delta.total_seconds() < 0）
         if delta.total_seconds() < -1.5 * 3600:
             print(f"⏪ 跳过过去比赛 {match_id}: {match_time}")
             continue
-        # 如果超过 2 小时，由于比赛按时间顺序排列，可以停止
         if delta.total_seconds() > 2 * 3600:
             print(f"⏹️ 停止于 {match_id} (比赛时间超出未来2小时)")
             stop_reason = f"遇到比赛时间超出未来2小时: {match_id}"
             break
 
-        # 处理该比赛
         print(f"处理 {match_id}: {basic.get('sh')} vs {basic.get('sa')}  时间: {match_time.strftime('%Y-%m-%d %H:%M')}")
 
         home_odds, away_odds = loader.get_odds_for_match(match_id)
         home_probs, away_probs = odds_to_probs(home_odds, away_odds)
 
-        # 模拟
         sim_data = run_simulation(home_probs, away_probs, SIM_N)
 
-        # 提取核心数据
         home_win_prob = sim_data['home_win_prob']
         draw_prob = sim_data['draw_prob']
         away_win_prob = sim_data['away_win_prob']
         exp_home = sim_data['exp_home']
         exp_away = sim_data['exp_away']
 
-        # 期望赔付
         ho, do, ao = loader.get_windrawwin_odds(match_id)
         exp_ho = home_win_prob * ho
         exp_do = draw_prob * do
         exp_ao = away_win_prob * ao
-        # 新增平均赔付：三个赔率的调和平均数
-        # 公式：exp_x = (ho^-1 + do^-1 + ao^-1)^-1
         exp_x = 1 / (1 / ho + 1 / do + 1 / ao)
 
-        # 总进球高概率进球数（概率 > 10%）
+        # ----- 修改部分：总进球概率分布 -----
         total_df = sim_data['total_goals_df'].copy()
-        high_prob_totals = total_df[total_df['概率'] > 0.10]['总进球'].tolist()
-        total_str = ", ".join(map(str, high_prob_totals)) if high_prob_totals else "无"
+        prob_map = {}
+        for g in range(8):  # 0-6
+            prob = total_df[total_df['总进球'] == g]['概率'].values
+            prob_map[g] = prob[0] if len(prob) > 0 else 0.0
+        prob_7plus = total_df[total_df['总进球'] >= 7]['概率'].sum()
+        # 格式化输出，例如 "0:12.5% 1:15.2% ... 7+:5.1%"
+        total_prob_str = " ".join([f"{g}:{prob_map[g]:.1%}" for g in range(7)] + [f"7+:{prob_7plus:.1%}"])
+        # -----------------------------
 
-        # 格式化显示时间
         display_time = format_gt_display(gt_raw)
 
         record = {
@@ -433,13 +421,12 @@ def main():
             "平赔付": f"{exp_do:.4f}",
             "负赔付": f"{exp_ao:.4f}",
             "平均赔付": f"{exp_x:.4f}",
-            "轮次>10%": total_str,
+            "总进球": total_prob_str,   # 字段名保持不变，内容改为概率分布
             "记录时间": beijing_time_str()
         }
         records.append(record)
         processed_count += 1
 
-    # 3. 输出结果
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
 
@@ -454,13 +441,9 @@ def main():
         "records": records
     }
 
-    # 生成时间戳
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    # 带时间戳的文件名
     json_file_ts = os.path.join(OUTPUT_DIR, f"analysis_output_{timestamp}.json")
-    
-    # 写入带时间戳的 JSON
+
     with open(json_file_ts, "w", encoding="utf-8") as f:
         json.dump(output_data, f, ensure_ascii=False, indent=2)
     print(f"✅ JSON 历史版本: {json_file_ts}")
