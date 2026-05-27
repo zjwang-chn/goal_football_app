@@ -1300,10 +1300,8 @@ elif page == "分析记录库":
                 st.session_state.analysis_records = []
                 st.rerun()
  
-
         # ==============================================
-        # 这里放我给你的 列宽 + 高亮代码（我已经帮你对齐好）
-        # 可选：只显示有完整概率分布数据的记录（非“待模拟”且非“无”）
+        # 可选：只显示有完整概率分布数据的记录
         show_only_complete = st.checkbox("仅显示有完整概率分布数据的记录", value=False)
         if show_only_complete:
             df = df[df["0球"] != "0.0%"]
@@ -1314,50 +1312,52 @@ elif page == "分析记录库":
                 "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球", "记录时间"]
         df = df[cols]
 
+        # ---------- 高亮：≥9.5% 红色加粗 + 浅黄色背景 ----------
+        score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
 
-        # 高亮 >=9.5%
-        def highlight_above_95(val):
+
+        def highlight_95(val):
             try:
                 if isinstance(val, str) and "%" in val:
-                    val_num = float(val.replace("%", ""))
-                    if val_num >= 9.5:
-                        return "background-color: #fff382; color: black;"
+                    num = float(val.replace("%", ""))
+                    if num >= 9.5:
+                        return "color:red; font-weight:bold; background-color:#fff382;"
             except:
-                pass
+                return ""
             return ""
 
 
-        score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
-        df_styled = df.style.applymap(highlight_above_95, subset=score_cols)
+        df_styled = df.style.applymap(highlight_95, subset=score_cols)
 
-        # 列宽配置
-        column_config = {
-            "时间": st.column_config.TextColumn(width=150),
-            "胜概率": st.column_config.TextColumn(width=90),
-            "平概率": st.column_config.TextColumn(width=90),
-            "负概率": st.column_config.TextColumn(width=90),
-            "主进球": st.column_config.TextColumn(width=90),
-            "客进球": st.column_config.TextColumn(width=90),
-            "胜赔付": st.column_config.TextColumn(width=100),
-            "平赔付": st.column_config.TextColumn(width=100),
-            "负赔付": st.column_config.TextColumn(width=100),
-            "0球": st.column_config.TextColumn(width=85),
-            "1球": st.column_config.TextColumn(width=85),
-            "2球": st.column_config.TextColumn(width=85),
-            "3球": st.column_config.TextColumn(width=85),
-            "4球": st.column_config.TextColumn(width=85),
-            "5球": st.column_config.TextColumn(width=85),
-            "6球": st.column_config.TextColumn(width=85),
-            "7+球": st.column_config.TextColumn(width=85),
-            "记录时间": st.column_config.TextColumn(width=160),
-            "赛事": st.column_config.TextColumn(width="auto"),
-            "主队": st.column_config.TextColumn(width="auto"),
-            "客队": st.column_config.TextColumn(width="auto"),
-        }
+        # ---------- 列宽设置（和你之前一模一样） ----------
+        df_styled = df_styled.set_table_styles([
+            {"selector": "td:nth-child(1)", "props": "min-width:150px"},  # 时间
+            {"selector": "td:nth-child(2)", "props": "min-width:auto"},  # 赛事
+            {"selector": "td:nth-child(3)", "props": "min-width:auto"},  # 主队
+            {"selector": "td:nth-child(4)", "props": "min-width:auto"},  # 客队
+            {"selector": "td:nth-child(5)", "props": "min-width:90px"},
+            {"selector": "td:nth-child(6)", "props": "min-width:90px"},
+            {"selector": "td:nth-child(7)", "props": "min-width:90px"},
+            {"selector": "td:nth-child(8)", "props": "min-width:90px"},
+            {"selector": "td:nth-child(9)", "props": "min-width:90px"},
+            {"selector": "td:nth-child(10)", "props": "min-width:100px"},
+            {"selector": "td:nth-child(11)", "props": "min-width:100px"},
+            {"selector": "td:nth-child(12)", "props": "min-width:100px"},
+            {"selector": "td:nth-child(13)", "props": "min-width:85px"},
+            {"selector": "td:nth-child(14)", "props": "min-width:85px"},
+            {"selector": "td:nth-child(15)", "props": "min-width:85px"},
+            {"selector": "td:nth-child(16)", "props": "min-width:85px"},
+            {"selector": "td:nth-child(17)", "props": "min-width:85px"},
+            {"selector": "td:nth-child(18)", "props": "min-width:85px"},
+            {"selector": "td:nth-child(19)", "props": "min-width:85px"},
+            {"selector": "td:nth-child(20)", "props": "min-width:85px"},
+            {"selector": "td:nth-child(21)", "props": "min-width:160px"},  # 记录时间
+        ], overwrite=False)
 
-        # 显示表格
-        st.dataframe(df_styled, column_config=column_config, use_container_width=True, hide_index=True)
-        
+        # 显示表格（完美不冲突）
+        st.dataframe(df_styled, use_container_width=True, hide_index=True)
+
+        # ==============================================
         # 导出 CSV
         beijing_now = datetime.datetime.now(timezone(timedelta(hours=8)))
         csv = df.to_csv(index=False).encode('utf-8')
@@ -1365,8 +1365,9 @@ elif page == "分析记录库":
             label="📥 导出为 CSV",
             data=csv,
             file_name=f"analysis_records_{beijing_now.strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv",
+            mime="text/csv"
         )
+
 
 st.markdown("---")
 st.caption("数据基于闯关概率模型模拟生成，实际结果可能因随机性有所波动。")
