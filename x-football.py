@@ -1313,19 +1313,6 @@ elif page == "分析记录库":
                 "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球", "记录时间"]
         df = df[cols]
         
-        # 3. 总进球概率列高亮（≥9.5%）
-        score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
-        for col in score_cols:
-            if col in df.columns:
-                try:
-                    # 将百分比字符串（如 "12.5%"）转为浮点数
-                    prob_vals = df[col].astype(str).str.rstrip('%').astype(float)
-                    mask = (prob_vals >= 9.5) & (~prob_vals.isna())
-                    styles.loc[mask, col] = 'background-color: #d4edda; color: #000000; font-weight: bold;'  # 浅绿色背景
-                except Exception:
-                    pass
- 
-             
         # ===================== 列宽配置（正常使用）=====================
         column_config = {
             "时间": st.column_config.TextColumn(width=120),
