@@ -113,7 +113,6 @@ def load_data():
         "records": all_records,
     }
 
-
 def highlight_payout_style(df):
     """
     使用 pandas.DataFrame.style 实现条件格式化
@@ -123,6 +122,7 @@ def highlight_payout_style(df):
          - 若对应概率 >= 50%，红色背景+黑色加粗
          - 若对应概率 < 50%，黄色背景+黑色加粗
        - 赔付值 < 平均赔付时：普通显示
+    3. 对总进球概率列（0球~7+球），概率 >= 9.5% 的单元格为浅绿色背景+黑色加粗
     """
     styles = pd.DataFrame('', index=df.index, columns=df.columns)
 
@@ -132,7 +132,7 @@ def highlight_payout_style(df):
         '负概率': '负赔付'
     }
 
-    # 概率列高亮（≥50%）
+    # 1. 概率列高亮（≥50%）
     for prob_col in ['胜概率', '平概率', '负概率']:
         if prob_col in df.columns:
             try:
@@ -142,7 +142,7 @@ def highlight_payout_style(df):
             except Exception:
                 pass
 
-    # 赔付列高亮
+    # 2. 赔付列高亮
     avg_col = '平均赔付'
     for prob_col, payout_col in prob_payout_map.items():
         if payout_col in df.columns and avg_col in df.columns:
@@ -160,7 +160,20 @@ def highlight_payout_style(df):
             except Exception:
                 pass
 
+    # 3. 总进球概率列高亮（≥9.5%）
+    score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
+    for col in score_cols:
+        if col in df.columns:
+            try:
+                # 将百分比字符串（如 "12.5%"）转为浮点数
+                prob_vals = df[col].astype(str).str.rstrip('%').astype(float)
+                mask = (prob_vals >= 9.5) & (~prob_vals.isna())
+                styles.loc[mask, col] = 'background-color: #d4edda; color: #000000; font-weight: bold;'  # 浅绿色背景
+            except Exception:
+                pass
+
     return styles
+
 
 
 def main():
