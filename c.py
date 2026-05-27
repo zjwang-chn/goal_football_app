@@ -259,7 +259,7 @@ def main():
         "负赔付": st.column_config.TextColumn("负赔付", width=60),
         "平均赔付": st.column_config.TextColumn("平均赔付", width=60),
         "记录时间": st.column_config.TextColumn("记录时间", width=120),
-        "match_id": st.column_config.TextColumn("ID", width=70),
+        "match_id": st.column_config.TextColumn("ID", width=60),
     }
     # 为8个概率列添加配置
     for g in range(7):
