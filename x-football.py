@@ -1313,6 +1313,15 @@ elif page == "分析记录库":
                 "0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球", "记录时间"]
         df = df[cols]
 
+        # ===================== 高亮标记：≥9.5% 加 🔴 红色圆球 =====================
+        score_cols = ["0球", "1球", "2球", "3球", "4球", "5球", "6球", "7+球"]
+        for col in score_cols:
+            df[col] = df[col].astype(str).apply(lambda x:
+                                                f"🔴 {x}" if (isinstance(x, str) and "%" in x and float(
+                                                    x.replace("%", "")) >= 9.5)
+                                                else x
+                                                )
+            
         # ===================== 列宽配置（正常使用）=====================
         column_config = {
             "时间": st.column_config.TextColumn(width=120),
