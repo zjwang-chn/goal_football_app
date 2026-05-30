@@ -22,6 +22,7 @@ import datetime
 from datetime import timezone, timedelta
 import gc
 import io
+from streamlit_integration import render_over_under_analysis
 
 # 导入 plotly
 try:
@@ -1007,14 +1008,23 @@ elif page == "赔率一览":
 
 elif page == "总进球":
     st.markdown('<p class="main-header">⚽ 总进球分布 & 大小球分析</p>', unsafe_allow_html=True)
+
     if data is None:
         st.info("请先在首页完成模拟，再查看总进球页面。")
         st.stop()
+
     match_id = st.session_state.selected_match_id
     oo, uo, li = loader.get_overunder_odds(match_id)
     X = li / 4.0 if li != 0 else 0.0
-    st.markdown(f"**大小球临界值 X = li/4 = {X:.2f}** &nbsp;&nbsp; 大球赔率 = {oo:.2f} &nbsp;&nbsp; 小球赔率 = {uo:.2f}")
 
+    st.markdown(
+        f"**盘口 {X:.2f}** &nbsp;&nbsp; "
+        f"<span style='color:#e63946'>大球赔率 {oo:.3f}</span> &nbsp;&nbsp; "
+        f"<span style='color:#2ec4b6'>小球赔率 {uo:.3f}</span>",
+        unsafe_allow_html=True
+    )
+
+    # ----- 原有表格显示（保留） -----
     total_df = data['total_goals_df'].copy()
     total_df['概率数值'] = total_df['概率']
 
@@ -1051,12 +1061,10 @@ elif page == "总进球":
     display_df = total_df_display[['总进球','频次','百分比','大小']].copy()
     display_df['大小'] = display_df['大小'].apply(lambda x: f"{x:.4f}")
 
-    # 高亮显示百分比 > 10% 的行（排除总计行）
     def highlight_percent(row):
         if row['总进球'] == '总计':
             return ['' for _ in row]
         try:
-            # 百分比列格式如 "12.34%"
             pct_val = float(row['百分比'].rstrip('%'))
             if pct_val > 10.0:
                 return ['background-color: #d4edda' for _ in row]
@@ -1066,6 +1074,15 @@ elif page == "总进球":
 
     styled_df = display_df.style.apply(highlight_percent, axis=1)
     st.dataframe(styled_df, use_container_width=True, hide_index=True, height=450)
+
+    # ===== 新增：深度可视化分析面板 =====
+    # 注意：确保 total_df 中的 '7+' 行概率数值正确
+    render_over_under_analysis(
+        total_df=total_df,
+        over_odds=oo,
+        under_odds=uo,
+        handicap=X
+    )
 
 elif page == "比分":
     st.markdown('<p class="main-header">📊 比分详情 & 净胜球</p>', unsafe_allow_html=True)
