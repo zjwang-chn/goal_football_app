@@ -23,6 +23,7 @@ from datetime import timezone, timedelta
 import gc
 import io
 from streamlit_integration import render_over_under_analysis
+from betting_value_page import render_betting_value_page, run_betting_analysis
 
 # 导入 plotly
 try:
@@ -725,7 +726,7 @@ with st.container():
     st.markdown('<div class="sticky-header">', unsafe_allow_html=True)
     page = st.radio(
         "选择页面",
-        ["首页", "赔率一览", "总进球", "比分", "轮次模拟", "分析记录库"],
+        ["首页", "赔率一览", "总进球", "比分", "轮次模拟", "分析记录库", "投注价值分析"],
         horizontal=True,
         label_visibility="collapsed",
         key="page_nav"
@@ -1333,5 +1334,8 @@ elif page == "分析记录库":
             mime="text/csv"
         )
         
+elif page == "投注价值分析":
+    render_betting_value_page(loader, st.session_state.selected_match_id)
+
 st.markdown("---")
 st.caption("数据基于闯关概率模型模拟生成，实际结果可能因随机性有所波动。")
