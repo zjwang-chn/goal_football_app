@@ -87,60 +87,63 @@ def under_return(hcp: float, goals: float, odds: float) -> float:
     return under_return_single(hcp, goals, odds)
 
 
+def _over_result_type(hcp: float, goals: float) -> str:
+    """大球方向的结果判定（不涉及赔率），返回 'win' / 'push' / 'lose'"""
+    t = get_handicap_type(hcp)
+    if t == 'integer':
+        if goals > hcp + 0.0001:
+            return 'win'
+        if abs(goals - hcp) < 0.0001:
+            return 'push'
+        return 'lose'
+    if t == 'half':
+        return 'win' if goals > hcp + 0.0001 else 'lose'
+    return 'lose'
+
+
+def _under_result_type(hcp: float, goals: float) -> str:
+    """小球方向的结果判定（不涉及赔率），返回 'win' / 'push' / 'lose'"""
+    t = get_handicap_type(hcp)
+    if t == 'integer':
+        if goals < hcp - 0.0001:
+            return 'win'
+        if abs(goals - hcp) < 0.0001:
+            return 'push'
+        return 'lose'
+    if t == 'half':
+        return 'win' if goals < hcp - 0.0001 else 'lose'
+    return 'lose'
+
+
+_RESULT_MAP = {'win': '赢', 'push': '走水', 'lose': '输'}
+
+
 def over_return_desc(hcp: float, goals: float) -> str:
     """大球结果描述：赢/输/走水/赢一半/输一半"""
     t = get_handicap_type(hcp)
     if t == 'quarter':
         lower = hcp - 0.25
         upper = hcp + 0.25
-        lr = over_return_single(lower, goals, 1)
-        ur = over_return_single(upper, goals, 1)
-        parts = []
-        for r in [lr, ur]:
-            if r == 1.0:
-                parts.append('走水')
-            elif r > 0:
-                parts.append('赢')
-            else:
-                parts.append('输')
+        parts = [
+            _RESULT_MAP[_over_result_type(lower, goals)],
+            _RESULT_MAP[_over_result_type(upper, goals)],
+        ]
         return '/'.join(parts)
-    if t == 'integer':
-        if goals > hcp + 0.0001:
-            return '赢'
-        if abs(goals - hcp) < 0.0001:
-            return '走水'
-        return '输'
-    if t == 'half':
-        return '赢' if goals > hcp + 0.0001 else '输'
-    return '—'
+    return _RESULT_MAP[_over_result_type(hcp, goals)]
 
 
 def under_return_desc(hcp: float, goals: float) -> str:
-    """小球结果描述"""
+    """小球结果描述：赢/输/走水/赢一半/输一半"""
     t = get_handicap_type(hcp)
     if t == 'quarter':
         lower = hcp - 0.25
         upper = hcp + 0.25
-        lr = under_return_single(lower, goals, 1)
-        ur = under_return_single(upper, goals, 1)
-        parts = []
-        for r in [lr, ur]:
-            if r == 1.0:
-                parts.append('走水')
-            elif r > 0:
-                parts.append('赢')
-            else:
-                parts.append('输')
+        parts = [
+            _RESULT_MAP[_under_result_type(lower, goals)],
+            _RESULT_MAP[_under_result_type(upper, goals)],
+        ]
         return '/'.join(parts)
-    if t == 'integer':
-        if goals < hcp - 0.0001:
-            return '赢'
-        if abs(goals - hcp) < 0.0001:
-            return '走水'
-        return '输'
-    if t == 'half':
-        return '赢' if goals < hcp - 0.0001 else '输'
-    return '—'
+    return _RESULT_MAP[_under_result_type(hcp, goals)]
 
 
 def calc_fair_odds(hcp: float, prob_values: list, goal_labels: list) -> tuple:
@@ -529,5 +532,5 @@ def render_over_under_analysis(
 
     # 理性提醒
     st.caption(
-        "⚠️ **博彩有风险，久赌必输。** 本文仅为数学分析参考，不构成实际投注建议。"
+        "⚠️ **博彩有风险，投注需谨慎！** 本文仅为数学分析参考，不构成实际投注建议。"
     )
