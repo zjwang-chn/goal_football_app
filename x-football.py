@@ -1024,11 +1024,11 @@ elif page == "总进球":
         unsafe_allow_html=True
     )
 
-    # ----- 原有表格显示（保留） -----
+    # ----- 准备数据（只提取概率数值，用于下方深度分析）-----
+    total_df = data['total_goals_df'].copy()
+    total_df['概率数值'] = total_df['概率']
 
-
-    # ===== 新增：深度可视化分析面板 =====
-    # 注意：确保 total_df 中的 '7+' 行概率数值正确
+    # ===== 深度分析面板 =====
     render_over_under_analysis(
         total_df=total_df,
         over_odds=oo,
