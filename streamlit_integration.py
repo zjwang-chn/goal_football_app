@@ -97,7 +97,7 @@ def over_return_desc(hcp: float, goals: float) -> str:
         ur = over_return_single(upper, goals, 1)
         parts = []
         for r in [lr, ur]:
-            if r == 0.0:
+            if r == 1.0:
                 parts.append('走水')
             elif r > 0:
                 parts.append('赢')
@@ -125,7 +125,7 @@ def under_return_desc(hcp: float, goals: float) -> str:
         ur = under_return_single(upper, goals, 1)
         parts = []
         for r in [lr, ur]:
-            if r == 0.0:
+            if r == 1.0:
                 parts.append('走水')
             elif r > 0:
                 parts.append('赢')
