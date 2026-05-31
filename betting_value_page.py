@@ -270,7 +270,6 @@ def run_betting_analysis(loader, match_id: str) -> dict:
         "joint_probs": joint,
         "total_goals": total_g,
         "ft_probs": ft_probs,
-        "htft_probs": htft_probs,
         "bets": bets,
         "handicap": handicap,
         "over_odds": oo,
