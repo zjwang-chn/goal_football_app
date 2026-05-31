@@ -18,10 +18,8 @@ from typing import Dict, List, Tuple
 # 复用现有的大小球分析模块（已包含正确亚洲盘口逻辑）
 try:
     from streamlit_integration import (
-        render_over_under_analysis,
         get_handicap_type,
         handicap_type_label,
-        calc_fair_odds,
         over_return,
         under_return,
     )
@@ -434,25 +432,9 @@ def render_betting_value_page(loader, match_id: str):
             st.metric(f"小球 @ {result['under_odds']:.3f}", f"{'✅ +EV' if ev_u > 0 else '❌ -EV'}",
                       delta=f"EV {ev_u*100:+.2f}%", delta_color=dc)
 
-        # 调用现有的大小球深度分析面板
-        if _HAS_OU:
-            # 准备 total_df
-            tg = result['total_goals']
-            max_g = max(tg.keys()) if tg else 7
-            goal_vals = list(range(max_g + 1))
-            prob_vals = [tg.get(g, 0) for g in goal_vals]
-            labels = [str(g) for g in goal_vals]
-            total_df = pd.DataFrame({
-                '总进球': labels,
-                '概率': prob_vals,
-                '百分比': [f"{p*100:.2f}%" for p in prob_vals],
-            })
-            render_over_under_analysis(
-                total_df=total_df,
-                over_odds=result['over_odds'],
-                under_odds=result['under_odds'],
-                handicap=result['handicap']
-            )
+        # 大小球仅显示 EV 摘要（完整分析面板在"总进球"页面）
+        hcp_desc = f"{result['handicap']:.2f}（{handicap_type_label(result['handicap'])}）"
+        st.caption(f"盘口 {hcp_desc} · 详细分析请查看「总进球」页面")
 
     # ========== 全场价值排行 ==========
     st.markdown("### 📊 价值投注排行（全部玩法）")
