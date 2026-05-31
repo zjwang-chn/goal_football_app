@@ -139,67 +139,6 @@ def compute_ft_probs(joint_probs: Dict[str, float], max_goals: int = 6) -> Dict[
     aw = sum(joint_probs[f"{i}-{j}"] for i in range(max_goals) for j in range(max_goals) if i < j)
     return {"home_win": hw, "draw": dr, "away_win": aw}
 
-
-def estimate_fh_probs(lambda_home: float, lambda_away: float,
-                       max_goals: int = 6, ratio: float = 0.45) -> Dict[str, float]:
-    """用 Poisson × ratio 估算上半场胜平负概率"""
-    def poisson(lam, k):
-        if lam <= 0:
-            return 1.0 if k == 0 else 0.0
-        return (lam ** k) * math.exp(-lam) / math.factorial(k)
-
-    lh = lambda_home * ratio
-    la = lambda_away * ratio
-    hh = [poisson(lh, i) for i in range(max_goals)]
-    ha = [poisson(la, i) for i in range(max_goals)]
-    hs = sum(hh); as_ = sum(ha)
-    hh_n = [v / hs for v in hh]; ha_n = [v / as_ for v in ha]
-
-    hw = sum(hh_n[i] * ha_n[j] for i in range(max_goals) for j in range(max_goals) if i > j)
-    dr = sum(hh_n[i] * ha_n[j] for i in range(max_goals) for j in range(max_goals) if i == j)
-    aw = sum(hh_n[i] * ha_n[j] for i in range(max_goals) for j in range(max_goals) if i < j)
-    return {"home_win": hw, "draw": dr, "away_win": aw}
-
-
-def compute_htft_probs(lambda_home: float, lambda_away: float,
-                        max_goals: int = 6) -> Dict[str, float]:
-    """半全场组合概率（独立上下半场 Poisson）"""
-    def poisson(lam, k):
-        if lam <= 0: return 1.0 if k == 0 else 0.0
-        return (lam ** k) * math.exp(-lam) / math.factorial(k)
-
-    def outcome(gh, ga):
-        return "H" if gh > ga else ("D" if gh == ga else "A")
-
-    fh_ratio = 0.45
-    sh_ratio = 0.55
-    lh_fh = lambda_home * fh_ratio; la_fh = lambda_away * fh_ratio
-    lh_sh = lambda_home * sh_ratio; la_sh = lambda_away * sh_ratio
-
-    fhh = [poisson(lh_fh, i) for i in range(max_goals)]
-    fha = [poisson(la_fh, i) for i in range(max_goals)]
-    shh = [poisson(lh_sh, i) for i in range(max_goals)]
-    sha = [poisson(la_sh, i) for i in range(max_goals)]
-
-    sfh = sum(fhh); sfa = sum(fha); ssh = sum(shh); ssa = sum(sha)
-    fhn = [v / sfh for v in fhh]; fan = [v / sfa for v in fha]
-    shn = [v / ssh for v in shh]; san = [v / ssa for v in sha]
-
-    htft = {}
-    for fhi in range(max_goals):
-        for faj in range(max_goals):
-            ht = outcome(fhi, faj)
-            p_ht = fhn[fhi] * fan[faj]
-            for shi in range(max_goals):
-                for saj in range(max_goals):
-                    ft = outcome(fhi + shi, faj + saj)
-                    p_sh = shn[shi] * san[saj]
-                    k = f"{ht}/{ft}"
-                    htft[k] = htft.get(k, 0) + p_ht * p_sh
-    t = sum(htft.values())
-    return {k: v / t for k, v in htft.items()}
-
-
 # ============================================================
 # 正确比分赔率解析
 # ============================================================
@@ -261,12 +200,6 @@ def run_betting_analysis(loader, match_id: str) -> dict:
     total_g = compute_total_goals(joint)
     ft_probs = compute_ft_probs(joint)
 
-    # --- 3. 上半场概率 ---
-    fh_probs = estimate_fh_probs(exp_home, exp_away)
-
-    # --- 4. 半全场概率 ---
-    htft_probs = compute_htft_probs(exp_home, exp_away)
-
     # --- 5. 获取各玩法赔率 ---
     ho, do_, ao = loader.get_windrawwin_odds(match_id)
     fh_ho, fh_do, fh_ao = loader.get_windrawwinfirsthalf_odds(match_id)
@@ -288,14 +221,6 @@ def run_betting_analysis(loader, match_id: str) -> dict:
         bets.append({"选项": f"全场 {k}", "类别": "全场胜平负",
                      "赔率": ft_odds_map[k], "理论概率": p, "EV": ev})
 
-    # 上半场胜平负
-    fh_odds_map = {"H": fh_ho, "D": fh_do, "A": fh_ao}
-    for k, pk in ft_keys.items():
-        p = fh_probs[pk]
-        ev = calculate_ev(fh_odds_map[k], p)
-        bets.append({"选项": f"上半场 {k}", "类别": "上半场胜平负",
-                     "赔率": fh_odds_map[k], "理论概率": p, "EV": ev})
-
     # 大小球（用 streamlit_integration 的已有计算，或重新计算）
     if _HAS_OU and handicap > 0:
         # 用 streamlit_integration 的 over_return/under_return 逐进球计算 EV
@@ -312,21 +237,6 @@ def run_betting_analysis(loader, match_id: str) -> dict:
                      "赔率": oo, "理论概率": 0, "EV": ev_over})
         bets.append({"选项": f"小 {handicap:.2f}", "类别": "大小球",
                      "赔率": uo, "理论概率": 0, "EV": ev_under})
-
-    # 半全场
-    hf_keys = ["H/H","H/D","H/A","D/H","D/D","D/A","A/H","A/D","A/A"]
-    hf_labels_map = {
-        "H/H":"胜胜","H/D":"胜平","H/A":"胜负",
-        "D/H":"平胜","D/D":"平平","D/A":"平负",
-        "A/H":"负胜","A/D":"负平","A/A":"负负"
-    }
-    for k in hf_keys:
-        p = htft_probs.get(k, 0)
-        od = hf.get(k.lower(), 0)
-        if od > 0:
-            ev = calculate_ev(od, p)
-            bets.append({"选项": hf_labels_map.get(k, k), "类别": "半全场",
-                         "赔率": od, "理论概率": p, "EV": ev})
 
     # 精确比分
     all_model_scores = {s: joint.get(s, 0) for s in MODEL_SCORES}
@@ -476,37 +386,6 @@ def render_betting_value_page(loader, match_id: str):
             st.success(f"发现 {len(positive)} 个正EV机会！")
         else:
             st.warning("所有投注选项均为负EV，未发现价值投注机会。")
-
-    # ========== 半全场分析 ==========
-    st.markdown("### 🔄 半全场组合")
-    hf = loader.get_halffull_odds(match_id)
-    hf_keys = ["H/H","H/D","H/A","D/H","D/D","D/A","A/H","A/D","A/A"]
-    hf_labels = ["胜胜","胜平","胜负","平胜","平平","平负","负胜","负平","负负"]
-    hf_data = []
-    for i, k in enumerate(hf_keys):
-        p = result['htft_probs'].get(k, 0)
-        od = hf.get(k.lower(), 0)
-        ev = calculate_ev(od, p) if od > 0 else -999
-        hf_data.append({"组合": hf_labels[i], "赔率": od, "概率": p, "EV": ev})
-
-    df_hf = pd.DataFrame(hf_data)
-    df_hf['概率'] = df_hf['概率'].apply(lambda x: f"{x:.4%}")
-    df_hf['EV'] = df_hf['EV'].apply(lambda x: f"{x*100:+.2f}%" if x > -999 else "-")
-    st.dataframe(df_hf, use_container_width=True, hide_index=True)
-
-    # ========== 上半场 ==========
-    st.markdown("### ⏱️ 上半场胜平负")
-    fhp = result['fh_probs']
-    fh_ho, fh_do, fh_ao = loader.get_windrawwinfirsthalf_odds(match_id)
-    cols = st.columns(3)
-    for i, (k, lbl) in enumerate([("H","主胜"), ("D","平局"), ("A","客胜")]):
-        odds = [fh_ho, fh_do, fh_ao][i]
-        p = [fhp['home_win'], fhp['draw'], fhp['away_win']][i]
-        ev = calculate_ev(odds, p)
-        with cols[i]:
-            dc = "normal" if ev > 0 else "inverse"
-            st.metric(lbl, f"{p:.2%}", delta=f"EV {ev*100:+.2f}% 赔率{odds:.2f}",
-                      delta_color=dc)
 
     # ========== 精确比分 Top 10 ==========
     st.markdown("### 🎯 精确比分（Top 10 高赔付）")
