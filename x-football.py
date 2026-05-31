@@ -1025,55 +1025,7 @@ elif page == "总进球":
     )
 
     # ----- 原有表格显示（保留） -----
-    total_df = data['total_goals_df'].copy()
-    total_df['概率数值'] = total_df['概率']
 
-    def calc_size_new(row):
-        goals = row['总进球']
-        prob = row['概率数值']
-        z = goals - X
-        if z <= -0.5:
-            return -1.0 * prob * uo
-        elif -0.5 < z < -0.25:
-            return -0.5 * prob * (uo + 1)
-        elif -0.25 <= z < 0:
-            return -0.5 * prob * (uo + 1)
-        elif z == 0:
-            return 0.0
-        elif 0 < z <= 0.25:
-            return 0.5 * prob * (oo + 1)
-        elif 0.25 < z < 0.5:
-            return 0.5 * prob * (oo + 1)
-        else:
-            return 1.0 * prob * oo
-
-    total_df['大小'] = total_df.apply(calc_size_new, axis=1)
-
-    total_row = pd.DataFrame({
-        '总进球': ['总计'],
-        '频次': [total_df['频次'].sum()],
-        '概率': [total_df['概率数值'].sum()],
-        '百分比': [f"{total_df['概率数值'].sum():.2%}"],
-        '概率数值': [total_df['概率数值'].sum()],
-        '大小': [total_df['大小'].sum()]
-    })
-    total_df_display = pd.concat([total_df, total_row], ignore_index=True)
-    display_df = total_df_display[['总进球','频次','百分比','大小']].copy()
-    display_df['大小'] = display_df['大小'].apply(lambda x: f"{x:.4f}")
-
-    def highlight_percent(row):
-        if row['总进球'] == '总计':
-            return ['' for _ in row]
-        try:
-            pct_val = float(row['百分比'].rstrip('%'))
-            if pct_val > 10.0:
-                return ['background-color: #d4edda' for _ in row]
-        except:
-            pass
-        return ['' for _ in row]
-
-    styled_df = display_df.style.apply(highlight_percent, axis=1)
-    st.dataframe(styled_df, use_container_width=True, hide_index=True, height=450)
 
     # ===== 新增：深度可视化分析面板 =====
     # 注意：确保 total_df 中的 '7+' 行概率数值正确
