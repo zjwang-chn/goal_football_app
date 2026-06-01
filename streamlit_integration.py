@@ -296,10 +296,10 @@ def render_over_under_analysis(
     #                        开始渲染 UI
     # =================================================================
 
-    st.markdown("---")
     st.markdown("### 📊 深度分析面板")
 
     # ----- 5.0 基准数据 -----
+    st.markdown("#### 基准数据")
     col_b1, col_b2, col_b3, col_b4, col_b5 = st.columns(5)
     with col_b1:
         hcp_label = f"{hcp:.2f}"
@@ -316,8 +316,11 @@ def render_over_under_analysis(
         st.metric("大球公平概率", f"{fair_over_prob:.2%}")
     with col_b5:
         st.metric("小球公平概率", f"{fair_under_prob:.2%}")
-
+        
+    st.markdown("---")
+    
     # ----- 5.1 概览指标 -----
+    st.markdown("#### 概览指标")
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("期望进球数", f"{expected_goals:.2f}")
