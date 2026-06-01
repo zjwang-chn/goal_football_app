@@ -303,19 +303,15 @@ def render_over_under_analysis(
     col_b1, col_b2, col_b3, col_b4, col_b5 = st.columns(5)
     with col_b1:
         hcp_label = f"{hcp:.2f}"
-    #    if hcp_type == 'quarter':
-    #        lower = hcp - 0.25
-    #        upper = hcp + 0.25
-    #        hcp_label += f" ({lower:.1f}+{upper:.1f})"
-        st.metric("大小球盘口", hcp_label)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["hcp_label"]:.2f}</div><div class="metric-label">🏠 大小球盘口</div></div>', unsafe_allow_html=True)
     with col_b2:
-        st.metric("大球赔率", f"{over_odds:.3f}")
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["over_odds"]:.3f}</div><div class="metric-label">🤝 大球赔率</div></div>', unsafe_allow_html=True)
     with col_b3:
-        st.metric("小球赔率", f"{under_odds:.3f}")
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["under_odds"]:.3f}</div><div class="metric-label">🚀 小球赔率</div></div>', unsafe_allow_html=True)
     with col_b4:
-        st.metric("大球公平概率", f"{fair_over_prob:.2%}")
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["fair_over_prob"]:.2%}</div><div class="metric-label">⚽ 大球公平概率</div></div>', unsafe_allow_html=True)
     with col_b5:
-        st.metric("小球公平概率", f"{fair_under_prob:.2%}")
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["fair_under_prob"]:.2%}</div><div class="metric-label">⚽ 小球公平概率</div></div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
