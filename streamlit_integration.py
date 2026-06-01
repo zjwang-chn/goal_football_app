@@ -332,73 +332,7 @@ def render_over_under_analysis(
     with col5:
         st.metric("P(=3球)", f"{prob_values[3]:.1%}" if len(prob_values) > 3 else "N/A")
 
-    # ----- 5.2 概率分布图 -----
-    st.markdown("#### 进球概率分布")
-    fig_dist = go.Figure()
-
-    colors = ['#94a3b8'] * 8
-    # 高亮模式（>10%）
-    for i, p in enumerate(prob_values):
-        if p > 0.10:
-            colors[i] = '#4361ee'
-    # 高亮众数
-    colors[mode_idx] = '#f59e0b'
-
-    fig_dist.add_trace(go.Bar(
-        x=goal_labels_str,
-        y=prob_values * 100,  # 转为百分比显示
-        marker_color=colors,
-        text=[f"{v:.1f}%" for v in prob_values * 100],
-        textposition='outside',
-        hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
-    ))
-    fig_dist.update_layout(
-        height=280,
-        margin=dict(l=0, r=0, t=10, b=0),
-        yaxis=dict(title='概率 (%)', range=[0, max(prob_values) * 100 * 1.25]),
-        xaxis=dict(title='总进球'),
-        hovermode='x',
-        bargap=0.3,
-    )
-    st.plotly_chart(fig_dist, use_container_width=True)
-
-    # ----- 5.3 盘口结算明细 -----
-    st.markdown(f"#### 盘口结算明细：{hcp}（{hcp_type_label}）")
-    st.caption(f"大球 @ {over_odds:.3f}  /  小球 @ {under_odds:.3f}")
-
-    settle_df = pd.DataFrame({
-        '进球': goal_labels_str,
-        '概率': [f"{p*100:.1f}%" for p in prob_values],
-        '大球结算': over_descs,
-        '大球返还': [f"{r:.3f}" for r in over_returns],
-        '小球结算': under_descs,
-        '小球返还': [f"{r:.3f}" for r in under_returns],
-    })
-
-    # 高亮突出行（概率 > 10%）
-    def highlight_settle(row):
-        idx = row.name
-        pct = prob_values[idx]
-        if pct > 0.10:
-            return ['background-color: #fffbeb'] * len(row)
-        return [''] * len(row)
-
-    st.dataframe(
-        settle_df.style.apply(highlight_settle, axis=1),
-        use_container_width=True,
-        hide_index=True,
-        height=min(60 + len(settle_df) * 38, 400)
-    )
-
-    if hcp_type == 'quarter':
-        lower = hcp - 0.25
-        upper = hcp + 0.25
-        st.caption(
-            f"💡 四分之一球盘：投注额平分为两份，分别按 {lower}（{handicap_type_label(lower)}）"
-            f"和 {upper}（{handicap_type_label(upper)}）结算。"
-        )
-
-    # ----- 5.4 期望值（EV）分析 -----
+        # ----- 5.2 期望值（EV）分析 -----
     st.markdown("#### 期望值（EV）分析")
 
     ev_col1, ev_col2, ev_col3, ev_col4 = st.columns(4)
@@ -457,6 +391,72 @@ def render_over_under_analysis(
 
 **隐含概率：** 大球 {implied_over:.1%} + 小球 {implied_under:.1%} = **{overround_pct:.1f}%**（抽水 {overround_pct - 100:.1f}%）
         """)
+
+    # ----- 5.3 盘口结算明细 -----
+    st.markdown(f"#### 盘口结算明细：{hcp}（{hcp_type_label}）")
+    st.caption(f"大球 @ {over_odds:.3f}  /  小球 @ {under_odds:.3f}")
+
+    settle_df = pd.DataFrame({
+        '进球': goal_labels_str,
+        '概率': [f"{p*100:.1f}%" for p in prob_values],
+        '大球结算': over_descs,
+        '大球返还': [f"{r:.3f}" for r in over_returns],
+        '小球结算': under_descs,
+        '小球返还': [f"{r:.3f}" for r in under_returns],
+    })
+
+    # 高亮突出行（概率 > 10%）
+    def highlight_settle(row):
+        idx = row.name
+        pct = prob_values[idx]
+        if pct > 0.10:
+            return ['background-color: #fffbeb'] * len(row)
+        return [''] * len(row)
+
+    st.dataframe(
+        settle_df.style.apply(highlight_settle, axis=1),
+        use_container_width=True,
+        hide_index=True,
+        height=min(60 + len(settle_df) * 38, 400)
+    )
+
+    if hcp_type == 'quarter':
+        lower = hcp - 0.25
+        upper = hcp + 0.25
+        st.caption(
+            f"💡 四分之一球盘：投注额平分为两份，分别按 {lower}（{handicap_type_label(lower)}）"
+            f"和 {upper}（{handicap_type_label(upper)}）结算。"
+        )
+
+    # ----- 5.4 概率分布图 -----
+    st.markdown("#### 进球概率分布")
+    fig_dist = go.Figure()
+
+    colors = ['#94a3b8'] * 8
+    # 高亮模式（>10%）
+    for i, p in enumerate(prob_values):
+        if p > 0.10:
+            colors[i] = '#4361ee'
+    # 高亮众数
+    colors[mode_idx] = '#f59e0b'
+
+    fig_dist.add_trace(go.Bar(
+        x=goal_labels_str,
+        y=prob_values * 100,  # 转为百分比显示
+        marker_color=colors,
+        text=[f"{v:.1f}%" for v in prob_values * 100],
+        textposition='outside',
+        hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
+    ))
+    fig_dist.update_layout(
+        height=280,
+        margin=dict(l=0, r=0, t=10, b=0),
+        yaxis=dict(title='概率 (%)', range=[0, max(prob_values) * 100 * 1.25]),
+        xaxis=dict(title='总进球'),
+        hovermode='x',
+        bargap=0.3,
+    )
+    st.plotly_chart(fig_dist, use_container_width=True)
 
     # ----- 5.5 赔率对比图 -----
     st.markdown("#### 赔率对比：市场 vs 公平")
