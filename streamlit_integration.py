@@ -303,10 +303,10 @@ def render_over_under_analysis(
     col_b1, col_b2, col_b3, col_b4, col_b5 = st.columns(5)
     with col_b1:
         hcp_label = f"{hcp:.2f}"
-        if hcp_type == 'quarter':
-            lower = hcp - 0.25
-            upper = hcp + 0.25
-            hcp_label += f" ({lower:.1f}+{upper:.1f})"
+    #    if hcp_type == 'quarter':
+    #        lower = hcp - 0.25
+    #        upper = hcp + 0.25
+    #        hcp_label += f" ({lower:.1f}+{upper:.1f})"
         st.metric("大小球盘口", hcp_label)
     with col_b2:
         st.metric("大球赔率", f"{over_odds:.3f}")
