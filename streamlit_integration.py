@@ -300,18 +300,19 @@ def render_over_under_analysis(
 
     # ----- 5.0 基准数据 -----
     st.markdown("#### 基准数据")
+
     col_b1, col_b2, col_b3, col_b4, col_b5 = st.columns(5)
     with col_b1:
         hcp_label = f"{hcp:.2f}"
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["hcp_label"]:.2f}</div><div class="metric-label">🏠 大小球盘口</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{hcp_label}</div><div class="metric-label">🏠 大小球盘口</div></div>', unsafe_allow_html=True)
     with col_b2:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["over_odds"]:.3f}</div><div class="metric-label">🤝 大球赔率</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{over_odds:.3f}</div><div class="metric-label">🤝 大球赔率</div></div>', unsafe_allow_html=True)
     with col_b3:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["under_odds"]:.3f}</div><div class="metric-label">🚀 小球赔率</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{under_odds:.3f}</div><div class="metric-label">🚀 小球赔率</div></div>', unsafe_allow_html=True)
     with col_b4:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["fair_over_prob"]:.2%}</div><div class="metric-label">⚽ 大球公平概率</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_over_prob:.2%}</div><div class="metric-label">⚽ 大球公平概率</div></div>', unsafe_allow_html=True)
     with col_b5:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{data["fair_under_prob"]:.2%}</div><div class="metric-label">⚽ 小球公平概率</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_under_prob:.2%}</div><div class="metric-label">⚽ 小球公平概率</div></div>', unsafe_allow_html=True)
         
     st.markdown("---")
     
