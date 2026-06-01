@@ -1018,13 +1018,6 @@ elif page == "总进球":
     oo, uo, li = loader.get_overunder_odds(match_id)
     X = li / 4.0 if li != 0 else 0.0
 
-    st.markdown(
-        f"**盘口 {X:.2f}** &nbsp;&nbsp; "
-        f"<span style='color:#e63946'>大球赔率 {oo:.3f}</span> &nbsp;&nbsp; "
-        f"<span style='color:#2ec4b6'>小球赔率 {uo:.3f}</span>",
-        unsafe_allow_html=True
-    )
-
     # ----- 准备数据（只提取概率数值，用于下方深度分析）-----
     total_df = data['total_goals_df'].copy()
     total_df['概率数值'] = total_df['概率']
