@@ -206,7 +206,9 @@ def calc_fair_odds(hcp: float, prob_values: list, goal_labels: list) -> tuple:
 
     fair_over = (1 - over_push_sum) / over_win_coeff if over_win_coeff > 0 else float('inf')
     fair_under = (1 - under_push_sum) / under_win_coeff if under_win_coeff > 0 else float('inf')
-    return fair_over, fair_under
+    fair_over_prob = 1.0 / fair_over   # 公平概率 = 1/公平赔率
+    fair_under_prob = 1.0 / fair_under
+    return fair_over, fair_under, fair_over_prob, fair_under_prob
 
 
 # ======================== 可视化渲染函数 ========================
@@ -283,7 +285,7 @@ def render_over_under_analysis(
     ev_under = sum(p * r for p, r in zip(prob_values, under_returns)) - 1.0
 
     # ===== 4. 公平赔率 =====
-    fair_over, fair_under = calc_fair_odds(hcp, prob_values.tolist(), goal_labels_str)
+    fair_over, fair_under, fair_over_prob, fair_under_prob = calc_fair_odds(hcp, prob_values.tolist(), goal_labels_str)
 
     # ===== 5. 隐含概率 & 抽水 =====
     implied_over = 1.0 / over_odds
@@ -294,7 +296,26 @@ def render_over_under_analysis(
     #                        开始渲染 UI
     # =================================================================
 
+    st.markdown("---")
     st.markdown("### 📊 深度分析面板")
+
+    # ----- 5.0 基准数据 -----
+    col_b1, col_b2, col_b3, col_b4, col_b5 = st.columns(5)
+    with col_b1:
+        hcp_label = f"{hcp:.2f}"
+        if hcp_type == 'quarter':
+            lower = hcp - 0.25
+            upper = hcp + 0.25
+            hcp_label += f" ({lower:.1f}+{upper:.1f})"
+        st.metric("大小球盘口", hcp_label)
+    with col_b2:
+        st.metric("大球赔率", f"{over_odds:.3f}")
+    with col_b3:
+        st.metric("小球赔率", f"{under_odds:.3f}")
+    with col_b4:
+        st.metric("大球公平概率", f"{fair_over_prob:.2%}")
+    with col_b5:
+        st.metric("小球公平概率", f"{fair_under_prob:.2%}")
 
     # ----- 5.1 概览指标 -----
     col1, col2, col3, col4, col5 = st.columns(5)
