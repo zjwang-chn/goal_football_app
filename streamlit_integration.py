@@ -319,15 +319,15 @@ def render_over_under_analysis(
 
     ev_col1, ev_col2, ev_col3, ev_col4 = st.columns(4)
     with ev_col1:
-        ev_over_pct = ev_over * 100
+        ev_over_pct = ev_over 
         delta_color = "inverse" if ev_over_pct < 0 else "normal"
     #    st.metric("大球 EV", f"{ev_over_pct:.2f}%", delta_color=delta_color)
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_over_pct:.2%}</div><div class="metric-label">🏠 大球 EV</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_over:.2%}</div><div class="metric-label">🏠 大球 EV</div></div>', unsafe_allow_html=True)
     with ev_col2:
-        ev_under_pct = ev_under * 100
+        ev_under_pct = ev_under 
         delta_color = "inverse" if ev_under_pct < 0 else "normal"
     #    st.metric("小球 EV", f"{ev_under_pct:.2f}%", delta_color=delta_color)
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_under_pct:.2%}</div><div class="metric-label">🏠 小球 EV</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_under:.2%}</div><div class="metric-label">🏠 小球 EV</div></div>', unsafe_allow_html=True)
     with ev_col3:
     #    st.metric("大球公平赔率", f"{fair_over:.3f}" if fair_over != float('inf') else "∞")
         st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_over:.3f}</div><div class="metric-label">🏠 大球公平赔率</div></div>', unsafe_allow_html=True)
