@@ -330,7 +330,7 @@ def render_over_under_analysis(
     # EV 条形图
     fig_ev = go.Figure()
     ev_labels = [f'大球 {hcp} @ {over_odds}', f'小球 {hcp} @ {under_odds}']
-    ev_vals = [ev_over_pct, ev_under_pct]
+    ev_vals = [ev_over, ev_under]
     ev_colors = ['#e63946' if v < 0 else '#2ec4b6' for v in ev_vals]
 
     fig_ev.add_trace(go.Bar(
