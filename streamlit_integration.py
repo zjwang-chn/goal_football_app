@@ -319,18 +319,26 @@ def render_over_under_analysis(
 
     ev_col1, ev_col2, ev_col3, ev_col4 = st.columns(4)
     with ev_col1:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_over:.2%}</div><div class="metric-label">🏠 大球 EV</div></div>', unsafe_allow_html=True)
+        ev_over_pct = ev_over
+        delta_color = "inverse" if ev_over_pct < 0 else "normal"
+    #    st.metric("大球 EV", f"{ev_over_pct:.2f}%", delta_color=delta_color)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_over_pct:.2%}</div><div class="metric-label">🏠 大球 EV</div></div>', unsafe_allow_html=True)
     with ev_col2:
-        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_under:.2%}</div><div class="metric-label">🏠 小球 EV</div></div>', unsafe_allow_html=True)
+        ev_under_pct = ev_under
+        delta_color = "inverse" if ev_under_pct < 0 else "normal"
+    #    st.metric("小球 EV", f"{ev_under_pct:.2f}%", delta_color=delta_color)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_under_pct:.2%}</div><div class="metric-label">🏠 小球 EV</div></div>', unsafe_allow_html=True)
     with ev_col3:
+    #    st.metric("大球公平赔率", f"{fair_over:.3f}" if fair_over != float('inf') else "∞")
         st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_over:.3f}</div><div class="metric-label">🏠 大球公平赔率</div></div>', unsafe_allow_html=True)
     with ev_col4:
+    #    st.metric("小球公平赔率", f"{fair_under:.3f}" if fair_under != float('inf') else "∞")
         st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_under:.3f}</div><div class="metric-label">🏠 小球公平赔率</div></div>', unsafe_allow_html=True)
 
     # EV 条形图
     fig_ev = go.Figure()
     ev_labels = [f'大球 {hcp} @ {over_odds}', f'小球 {hcp} @ {under_odds}']
-    ev_vals = [ev_over, ev_under]
+    ev_vals = [ev_over_pct, ev_under_pct]
     ev_colors = ['#e63946' if v < 0 else '#2ec4b6' for v in ev_vals]
 
     fig_ev.add_trace(go.Bar(
@@ -363,9 +371,9 @@ def render_over_under_analysis(
             f"{p*100:.1f}%×{r:.3f}" for p, r in zip(prob_values, under_returns)
         )
         st.markdown(f"""
-**大球 EV** = {over_formula} − 1 = **{ev_over:.2f}%**
+**大球 EV** = {over_formula} − 1 = **{ev_over_pct:.2f}%**
 
-**小球 EV** = {under_formula} − 1 = **{ev_under:.2f}%**
+**小球 EV** = {under_formula} − 1 = **{ev_under_pct:.2f}%**
 
 **隐含概率：** 大球 {implied_over:.1%} + 小球 {implied_under:.1%} = **{overround_pct:.1f}%**（抽水 {overround_pct - 100:.1f}%）
         """)
