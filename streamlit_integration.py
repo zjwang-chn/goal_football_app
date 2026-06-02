@@ -363,9 +363,9 @@ def render_over_under_analysis(
             f"{p*100:.1f}%×{r:.3f}" for p, r in zip(prob_values, under_returns)
         )
         st.markdown(f"""
-**大球 EV** = {over_formula} − 1 = **{ev_over_pct:.2f}%**
+**大球 EV** = {over_formula} − 1 = **{ev_over:.2f}%**
 
-**小球 EV** = {under_formula} − 1 = **{ev_under_pct:.2f}%**
+**小球 EV** = {under_formula} − 1 = **{ev_under:.2f}%**
 
 **隐含概率：** 大球 {implied_over:.1%} + 小球 {implied_under:.1%} = **{overround_pct:.1f}%**（抽水 {overround_pct - 100:.1f}%）
         """)
