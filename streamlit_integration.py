@@ -316,38 +316,26 @@ def render_over_under_analysis(
         
     st.markdown("---")
     
-    # ----- 5.1 概览指标 -----
-    st.markdown("#### 概览指标")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("期望进球数", f"{expected_goals:.2f}")
-    with col2:
-        mode_idx = np.argmax(prob_values)
-        mode_label = goal_labels_str[mode_idx]
-        st.metric("最可能进球", mode_label)
-    with col3:
-        st.metric("P(≥4球)", f"{sum(prob_values[4:]):.1%}")
-    with col4:
-        st.metric("P(≤2球)", f"{sum(prob_values[:3]):.1%}")
-    with col5:
-        st.metric("P(=3球)", f"{prob_values[3]:.1%}" if len(prob_values) > 3 else "N/A")
-
-        # ----- 5.2 期望值（EV）分析 -----
+    # ----- 5.1 期望值（EV）分析 -----
     st.markdown("#### 期望值（EV）分析")
 
     ev_col1, ev_col2, ev_col3, ev_col4 = st.columns(4)
     with ev_col1:
         ev_over_pct = ev_over * 100
         delta_color = "inverse" if ev_over_pct < 0 else "normal"
-        st.metric("大球 EV", f"{ev_over_pct:.2f}%", delta_color=delta_color)
+    #    st.metric("大球 EV", f"{ev_over_pct:.2f}%", delta_color=delta_color)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_over_pct:.2f}</div><div class="metric-label">🏠 大球 EV</div></div>', unsafe_allow_html=True)
     with ev_col2:
         ev_under_pct = ev_under * 100
         delta_color = "inverse" if ev_under_pct < 0 else "normal"
-        st.metric("小球 EV", f"{ev_under_pct:.2f}%", delta_color=delta_color)
+    #    st.metric("小球 EV", f"{ev_under_pct:.2f}%", delta_color=delta_color)
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{ev_under_pct:.2f}</div><div class="metric-label">🏠 小球 EV</div></div>', unsafe_allow_html=True)
     with ev_col3:
-        st.metric("大球公平赔率", f"{fair_over:.3f}" if fair_over != float('inf') else "∞")
+    #    st.metric("大球公平赔率", f"{fair_over:.3f}" if fair_over != float('inf') else "∞")
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_over:.3f}</div><div class="metric-label">🏠 大球公平赔率</div></div>', unsafe_allow_html=True)
     with ev_col4:
-        st.metric("小球公平赔率", f"{fair_under:.3f}" if fair_under != float('inf') else "∞")
+    #    st.metric("小球公平赔率", f"{fair_under:.3f}" if fair_under != float('inf') else "∞")
+        st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_under:.3f}</div><div class="metric-label">🏠 小球公平赔率</div></div>', unsafe_allow_html=True)
 
     # EV 条形图
     fig_ev = go.Figure()
@@ -391,6 +379,25 @@ def render_over_under_analysis(
 
 **隐含概率：** 大球 {implied_over:.1%} + 小球 {implied_under:.1%} = **{overround_pct:.1f}%**（抽水 {overround_pct - 100:.1f}%）
         """)
+        
+    st.markdown("---")
+    
+    # ----- 5.2 概览指标 -----
+    st.markdown("#### 概览指标")
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.metric("期望进球数", f"{expected_goals:.2f}")
+    with col2:
+        mode_idx = np.argmax(prob_values)
+        mode_label = goal_labels_str[mode_idx]
+        st.metric("最可能进球", mode_label)
+    with col3:
+        st.metric("P(≥4球)", f"{sum(prob_values[4:]):.1%}")
+    with col4:
+        st.metric("P(≤2球)", f"{sum(prob_values[:3]):.1%}")
+    with col5:
+        st.metric("P(=3球)", f"{prob_values[3]:.1%}" if len(prob_values) > 3 else "N/A")
+
 
     # ----- 5.3 盘口结算明细 -----
     st.markdown(f"#### 盘口结算明细：{hcp}（{hcp_type_label}）")
