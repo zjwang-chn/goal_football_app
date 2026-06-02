@@ -313,8 +313,6 @@ def render_over_under_analysis(
         st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_over_prob:.2%}</div><div class="metric-label">⚽ 大球公平概率</div></div>', unsafe_allow_html=True)
     with col_b5:
         st.markdown(f'<div class="metric-box"><div class="metric-value">{fair_under_prob:.2%}</div><div class="metric-label">⚽ 小球公平概率</div></div>', unsafe_allow_html=True)
-        
-    st.markdown("---")
     
     # ----- 5.1 期望值（EV）分析 -----
     st.markdown("#### 期望值（EV）分析")
@@ -379,8 +377,6 @@ def render_over_under_analysis(
 
 **隐含概率：** 大球 {implied_over:.1%} + 小球 {implied_under:.1%} = **{overround_pct:.1f}%**（抽水 {overround_pct - 100:.1f}%）
         """)
-        
-    st.markdown("---")
     
     # ----- 5.2 概览指标 -----
     st.markdown("#### 概览指标")
@@ -397,7 +393,6 @@ def render_over_under_analysis(
         st.metric("P(≤2球)", f"{sum(prob_values[:3]):.1%}")
     with col5:
         st.metric("P(=3球)", f"{prob_values[3]:.1%}" if len(prob_values) > 3 else "N/A")
-
 
     # ----- 5.3 盘口结算明细 -----
     st.markdown(f"#### 盘口结算明细：{hcp}（{hcp_type_label}）")
